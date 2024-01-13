@@ -1,6 +1,6 @@
 name = "MomentMatching"
 uuid = "a67aff5b-0ccc-47d5-9c4f-fef2ba9c9aa3"
-authors = ["Gualtiero Azzalini", "Zoltan Racz"]
+authors = ["Gualtiero Azzalini", "Zoltán Rácz"]
 version = "1.0.0-DEV"
 
 [compat]
