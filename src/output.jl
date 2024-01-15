@@ -300,7 +300,7 @@ $(TYPEDSIGNATURES)
 
 compares model-generated moments with data in a plot
 """
-function plotmoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
+function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
     @unpack momloc, npmm = mmsolu
 
     df = tablemoms_inner(estset, mmsolu)
