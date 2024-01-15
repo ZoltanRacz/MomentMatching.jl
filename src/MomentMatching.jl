@@ -20,9 +20,49 @@ using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
 
 # exported types and functions
-export estimation, # main function
-       two_stage_estimation
+export estimation, # main functions
+       two_stage_estimation,
 
+       # from estimation.jl:
+       # Abstract types and functions which (might) need 
+       # mode-specific subtypes or methods.
+       AuxiliaryParameters,
+       EstimationMode,
+       PreallocatedContainers,       
+       PredrawnShocks,
+
+       datamoments,
+       default_weight_matrix,
+       ftypemom,
+       indexvector,
+       mdiff,
+       mean_moments,
+       momentnames,
+       obj_mom,
+       parambounds,
+
+       # from estimation.jl:
+       # other objects which must be directly available for the user
+       EstimationSetup,
+       NumParMM,
+
+       # from inference.jl:
+       # functions to perform inference on results
+       marginal_fobj,
+       defaultxgrid,
+       param_bootstrap_result,
+       Jtest,
+
+       # from output.jl:
+       # functions to generate figures or tables
+       alloutputs,
+       fbootstrap,
+       fglobounds,
+       fmarg,
+       fmoms,
+       fsanity,
+       tableest,
+       tablemoms
 
 include("estimation.jl")
 include("inference.jl")
