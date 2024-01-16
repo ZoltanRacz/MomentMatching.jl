@@ -622,3 +622,16 @@ function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParam
 
     return est_1st, boot_1st, est_2st, boot_2st
 end
+
+macro maythread(body)
+    esc(:(if $(@__MODULE__).threading_inside()
+    Threads.@threads($body)
+    else
+      $body
+    end))
+end
+
+estimation_result_path() = "./saved/estimation_results/"
+estimation_output_path() = "./saved/estimation_output/"
+
+threading_inside() = false
