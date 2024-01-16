@@ -440,7 +440,7 @@ function alloutputs(estset::EstimationSetup, mmsolu::EstimationResult, boot::Boo
     fmarg(estset, mmsolu,marg; saving, filename_suffix)
     fsanity(estset, mmsolu; saving, filename_suffix)
     tableest(estset, mmsolu, boot; saving, filename_suffix) 
-    plotmoms(estset, mmsolu; saving, filename_suffix) 
+    fmoms(estset, mmsolu; saving, filename_suffix) 
     tablemoms(estset, mmsolu, boot; saving, filename_suffix) 
     fbootstrap(estset, mmsolu, boot; saving, filename_suffix)
     return nothing

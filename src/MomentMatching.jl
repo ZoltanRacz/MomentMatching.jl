@@ -7,9 +7,9 @@ using Plots # for functions providing figures. Should check if we can avoid via 
 using Plots: plot, plot! # importing these functions explicitly avoids bug in vscode underlying all plot functions. Should check if still needed or has been fixed.
 gr()
 
-# using LinearAlgebra # sure?
+using LinearAlgebra: diagm, tr, norm, cond, diag
 #using Statistics # let's try if we get away with commenting this out. StatsBase is bigger and calls many functions from Statistics anyways.
-#using StatsBase # sure?
+using StatsBase: mean, var, cov
 using JLD # For saving results. We should consider alternatives due to compatibility issues
 using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation. Should we use it in the end?
@@ -36,7 +36,6 @@ export estimation, # main functions
        ftypemom,
        indexvector,
        mdiff,
-       mean_moments,
        momentnames,
        obj_mom,
        parambounds,
@@ -46,7 +45,7 @@ export estimation, # main functions
        estimation_output_path,
        estimation_result_path,
        EstimationSetup,
-       maythread,
+       @maythread,
        NumParMM,
        threading_inside,
 
