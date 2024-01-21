@@ -354,10 +354,10 @@ function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=f
             yguidefont=font(12),
             tickfont=font(10),
             legendfont=font(10),
-            left_margin=5mm,
-            right_margin=5mm,
-            top_margin=2.5mm,
-            bottom_margin=5mm)
+            left_margin=5PlotMeasures.mm,
+            right_margin=5PlotMeasures.mm,
+            top_margin=2.5PlotMeasures.mm,
+            bottom_margin=5PlotMeasures.mm)
 
             display(figs[ff])
 
