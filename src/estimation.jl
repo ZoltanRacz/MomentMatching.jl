@@ -131,7 +131,7 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
-function NumParMM(estset::EstimationSetup; Nglo::T=5000, Nloc::T=50, it::T=50, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
+function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
     return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc)
 end
