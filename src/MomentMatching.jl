@@ -15,7 +15,8 @@ using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation. Should we use it in the end?
 using CSV # For saving tables as output
 using DataFrames # For dealing with tables
-using Optim # For global phase of estimation
+using NLopt # For local phase of estimation
+using Optim # For local phase of estimation
 using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
 
