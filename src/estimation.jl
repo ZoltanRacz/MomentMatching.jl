@@ -102,6 +102,8 @@ end
 
 PreallocatedContainers(estset::EstimationSetup, aux::AuxiliaryParameters) = PreallocatedContainers(estset.mode, estset.modelname, estset.typemom, aux)
 
+OptimizationAlgorithm = Union{Optim.AbstractOptimizer,Symbol}
+
 """
 $(TYPEDEF)
 # Description
@@ -127,8 +129,6 @@ $(FIELDS)
     "Optimization algorithm used in local stage"
     local_alg::OptimizationAlgorithm
 end
-
-OptimizationAlgorithm = Union{Optim.AbstractOptimizer,Symbol}
 
 """
 $(TYPEDSIGNATURES)
