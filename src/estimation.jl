@@ -126,8 +126,6 @@ $(FIELDS)
     onlyglo::Bool
     "Logical, true if only local optimization is to be performed"
     onlyloc::Bool
-    "Optimization algorithm used in local stage"
-    local_alg::OptimizationAlgorithm
 end
 
 """
@@ -137,7 +135,7 @@ Create instance of NumParMM.
 """
 function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
-    return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc, NelderMead())
+    return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc)
 end
 
 """
@@ -212,13 +210,13 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 """
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
-presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="", vararg...)
+presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], local_alg::OptimizationAlgorithm = NelderMead(), saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="", vararg...)
 
     @assert(!threading_inside())
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
-    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix) # perform estimation
+    mmsolu = matchmom(estset, pmm, npmm, local_alg, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix) # perform estimation
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix) # saving
 
@@ -322,7 +320,7 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine.
 """
-function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String)
+function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, local_alg::OptimizationAlgorithm, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String)
     @unpack Nglo, Nloc, onlyglo, onlyloc = npmm
     @unpack lb_global, ub_global = pmm
     @unpack mode, modelname, typemom = estset
@@ -400,7 +398,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk[n]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n)
                 objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal)
                 ProgressMeter.next!(prog)
             end
