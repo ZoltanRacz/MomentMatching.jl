@@ -102,6 +102,8 @@ end
 
 PreallocatedContainers(estset::EstimationSetup, aux::AuxiliaryParameters) = PreallocatedContainers(estset.mode, estset.modelname, estset.typemom, aux)
 
+OptimizationAlgorithm = Union{Optim.AbstractOptimizer,Symbol}
+
 """
 $(TYPEDEF)
 # Description
@@ -131,7 +133,7 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
-function NumParMM(estset::EstimationSetup; Nglo::T=5000, Nloc::T=50, it::T=50, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
+function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
     return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc)
 end
@@ -208,13 +210,13 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 """
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
-presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="", vararg...)
+presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], local_alg::OptimizationAlgorithm = NelderMead(), saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="", vararg...)
 
     @assert(!threading_inside())
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
-    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix) # perform estimation
+    mmsolu = matchmom(estset, pmm, npmm, local_alg, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix) # perform estimation
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix) # saving
 
@@ -318,7 +320,7 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine.
 """
-function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String)
+function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, local_alg::OptimizationAlgorithm, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String)
     @unpack Nglo, Nloc, onlyglo, onlyloc = npmm
     @unpack lb_global, ub_global = pmm
     @unpack mode, modelname, typemom = estset
@@ -396,7 +398,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk[n]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n)
                 objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal)
                 ProgressMeter.next!(prog)
             end
@@ -434,11 +436,42 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
-    sol = optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal), xcand, NelderMead(), Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
+    sol = optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
     obj[n] = Optim.minimum(sol)
     xsol[n] = Optim.minimizer(sol)
     conv[n] = Optim.converged(sol)
+    return nothing
+end
+
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
+
+    opt = Opt(local_alg, length(xcand)) # or LN_COBYLA
+    function funf(x::Vector, grad::Vector)
+        if length(grad) > 0
+        end
+        return objf!(mom[n], momnorm[n], estset, x, pmm, aux, presh, preal)
+    end
+    
+    opt.min_objective = funf
+    
+    opt.lower_bounds = pmm.lb_hard
+    opt.upper_bounds = pmm.ub_hard
+    
+    opt.maxeval = iter
+    
+    # ? opt.initial_step = [0.01,0.002,0.1,0.01,0.001,0.01,0.005,0.05]
+    
+    (optf,optx,ret) = NLopt.optimize(opt, xcand)
+
+    obj[n] = optf
+    xsol[n] = optx
+    if ret == :SUCCESS || ret == :FTOL_REACHED || ret == :XTOL_REACHED
+        conv[n] = true
+    else
+        conv[n] = false
+    end
+
     return nothing
 end
 

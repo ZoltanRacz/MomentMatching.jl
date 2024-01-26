@@ -3,7 +3,6 @@
 [![Build Status](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 
 by Gualtiero Azzalini (Stockholm School of Economics)\
-Markus Kondziella (Univeristy of St. Gallen)\
 Zoltan Racz (Stockholm School of Economics)
 
 __Description.__ This package allows to perform Method of Moments estimation (Generalized and Simulated).  
