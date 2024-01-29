@@ -124,7 +124,15 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult,auxmo
         obj_mom!(moms[sample_i],momnorms[sample_i],mode, bestx, modelname, typemom, auxmomsim, PredrawnShocks(estset,auxmomsim), prealc)
     end
 
-    mms = [initMMmodel(estset, npmm, moms2 = hcat(moms[sample_i],momnorms[sample_i])) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
+    if mmsolu.npmm.onlyglo==true
+        momsresc = mmsolu.pmm.momglo[1]
+    else
+        momsresc = mmsolu.pmm.momloc[1]
+    end
+
+    mdifresc = mdiff(mode, momsresc, mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
+
+    mms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifresc) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
 
     presh_repeat = [PredrawnShocks(estset,aux) for seed_i in 1:Nseeds] # Nseeds different aux structure for each alternative moment
 
