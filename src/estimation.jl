@@ -164,6 +164,8 @@ $(FIELDS)
     mmomdat::Vector{S}
     "Weighting matrix"
     W::Array{S,2}
+    "Predetermined quantity to re-center moment condition"
+    mdifresc::Vector{S}
 end
 
 
@@ -230,7 +232,7 @@ $(TYPEDSIGNATURES)
 
 Initializes structure to store matching moments estimation inputs. See separate documentation [`ParMM`](@ref).
 """
-function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(estset.mode, estset.typemom), Wmat=default_weight_matrix(estset, size(moms2, 1)))
+function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(estset.mode, estset.typemom), Wmat=default_weight_matrix(estset, size(moms2, 1)), mdifr=zeros(size(moms2,1)))
     @unpack full_lb_global, full_ub_global = npmm
     @unpack mode, modelname = estset
 
@@ -248,7 +250,8 @@ function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(
         labels=full_labels[indexvec],
         momdat=mom,
         mmomdat=mmom,
-        W=Wmat)
+        W=Wmat,
+        mdifresc=mdifr)
 end
 
 """
@@ -487,7 +490,7 @@ $(TYPEDSIGNATURES)
 Computes the objective function.
 """
 function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers)
-    @unpack lb_hard, ub_hard, W, momdat, mmomdat = pmm
+    @unpack lb_hard, ub_hard, W, momdat, mmomdat, mdifresc = pmm
     @unpack mode, modelname, typemom = estset
     flat_penalty = 10^15
 
@@ -498,7 +501,7 @@ function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationS
 #        try
             obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, preal) # obtains moments from model
     
-            mdif = mdiff(mode, mom, momdat, mmomdat) # computes deviation from moments in data
+            mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifresc # computes deviation from moments in data
 
             traditional_obj = mdif'*W*mdif # *(*(transpose(mdif), W), mdif) 
 
