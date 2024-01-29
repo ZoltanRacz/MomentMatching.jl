@@ -13,6 +13,11 @@ Nsample = 150
 Nseed = 10
 auxmomsim = AR1AuxPar(Ndata,Tdata+Tdis,Tdis)
 
-# one stage, first only estimation (bootstrap takes long, do only for ok estimation results)
-est_1st = estimation(setup; npmm=npest, filename_suffix = "_1st")
-aggboot_1st = param_bootstrap_result(aggsetup, aggest_1st,auxmomsimagg, Nseed, Nsample, Ndata, saving = true, filename_suffix = "_1st")
+aux = AuxiliaryParameters(AR1Estimation("ar1estim"),"")
+presh = PredrawnShocks(AR1Estimation("ar1estim"),"","",aux)
+preal = PreallocatedContainers(AR1Estimation("ar1estim"),"","",aux)
+
+MomentMatching.obj_mom!(fill(0.0,3), fill(0.0,3), AR1Estimation("ar1estim"), [0.9,0.2,0.1], "", "", aux, presh, preal)
+
+est_1st = estimation(setup; npmm=npest)
+boot_1st = param_bootstrap_result(setup, est_1st,auxmomsim, Nseed, Nsample, Ndata, saving = false)
