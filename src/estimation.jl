@@ -164,7 +164,7 @@ $(FIELDS)
     mmomdat::Vector{S}
     "Weighting matrix"
     W::Array{S,2}
-    "Predetermined quantity to rescale moments"
+    "Predetermined quantity to re-center moment condition"
     mdifresc::Vector{S}
 end
 
