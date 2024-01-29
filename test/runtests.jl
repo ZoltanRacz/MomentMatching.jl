@@ -2,5 +2,5 @@ using MomentMatching
 using Test
 
 @testset "MomentMatching.jl" begin
-    # Write your tests here.
+    include("test_minimalAR1.jl")
 end
