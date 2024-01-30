@@ -7,7 +7,7 @@ setup = EstimationSetup(AR1Estimation("ar1estim"),"","")
 npest = NumParMM(setup; Nglo=100, Nloc=10, it = 3000)
 
 Tdis = 100
-Ndata = 30000
+Ndata = 3000
 Tdata = 300
 Nsample = 150
 Nseed = 10
