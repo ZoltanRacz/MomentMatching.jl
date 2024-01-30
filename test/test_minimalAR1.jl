@@ -9,8 +9,8 @@ npest = NumParMM(setup; Nglo=100, Nloc=10, it = 3000)
 Tdis = 100
 Ndata = 3000
 Tdata = 300
-Nsample = 150
-Nseed = 10
+Nsample = 3
+Nseed = 2
 auxmomsim = AR1AuxPar(Ndata,Tdata+Tdis,Tdis)
 
 aux = AuxiliaryParameters(AR1Estimation("ar1estim"),"")
