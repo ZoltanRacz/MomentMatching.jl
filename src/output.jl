@@ -193,10 +193,11 @@ Creates DataFrame with parameter estimates and optionally saves it, bootstrap ca
 - boot: Instance of BootstrapResult. See separate documentation [`BootstrapResult`](@ref).
 
 # Optional arguments
+- cilev: Level of confidence intervals.
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
     @unpack xs,sd_asymp = boot
@@ -205,9 +206,11 @@ function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::Bootst
 
     bs_sds = [sqrt(var(xs[i,:,:])) for i in axes(xs,1)]
     ratios = [mean(var(xs[i,:,:]; dims=1))/var(xs[i,:,:]) for i in axes(xs,1)]
+    bc_ci = [quantile(xs[i,:,:][:], [cilev/2, 1.0 - cilev/2]) for i in axes(xs, 1)]
 
     df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=3)
     df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=3)
+    df[:, :("Bootstrapped $(1-cilev)% CI")] = round.(bs_ci, digits=3)
     df[:, :("Seed share of variance")] = round.(ratios, digits=3)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest_boot.csv", df)
@@ -377,10 +380,12 @@ Plot bootstrap results.
 - xs: Array with bootstrap values.
 
 # Optional arguments
+- ci: Logical, true if confidence intervals should be plotted.
+- cilev: Level of confidence intervals.
 - saving: Logical, true if output has to be saved.
 - plotarg: Other inputs for plotting.
 """
-function fbootstrap(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool=false, filename_suffix::String="", trim::Real = 0.01)
+function fbootstrap(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; ci::Bool=true, cilev::Real=0.05, saving::Bool=false, filename_suffix::String="", trim::Real = 0.01)
     @unpack npmm,xloc = mmsolu
     @unpack xs = boot
 
@@ -399,9 +404,16 @@ function fbootstrap(estset::EstimationSetup, mmsolu::EstimationResult, boot::Boo
         xopt = xloc[1][k]
         vline!([xopt];
             label="",
-            markercolor="red",
-            width=3,
+            linecolor="red",
+            width=2,
             style=:dash)
+        if ci==true
+            vline!(quantile(xdist, [cilev/2, 1.0 - cilev/2], sorted=true);
+                label="",
+                linecolor="red",
+                width=2,
+                style=:dash)
+        end
         push!(fig, f)
     end
     ffig = plot(fig...;fonts()...)
