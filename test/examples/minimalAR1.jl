@@ -1,4 +1,4 @@
-using StatsBase, DataFrame
+using StatsBase, DataFrames
 
 struct AR1Estimation <: EstimationMode
     "mode-dependent prefix of filenames used for saving estimation results"
