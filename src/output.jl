@@ -206,7 +206,7 @@ function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::Bootst
 
     bs_sds = [sqrt(var(xs[i,:,:])) for i in axes(xs,1)]
     ratios = [mean(var(xs[i,:,:]; dims=1))/var(xs[i,:,:]) for i in axes(xs,1)]
-    bc_ci = [quantile(xs[i,:,:][:], [cilev/2, 1.0 - cilev/2]) for i in axes(xs, 1)]
+    bs_ci = [quantile(xs[i,:,:][:], [cilev/2, 1.0 - cilev/2]) for i in axes(xs, 1)]
 
     df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=3)
     df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=3)
@@ -412,7 +412,7 @@ function fbootstrap(estset::EstimationSetup, mmsolu::EstimationResult, boot::Boo
                 label="",
                 linecolor="red",
                 width=2,
-                style=:dash)
+                style=:dot)
         end
         push!(fig, f)
     end
