@@ -437,7 +437,7 @@ $(TYPEDSIGNATURES)
 Perform estimation routine, local stage.
 """
 function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
-    sol = optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
+    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
     obj[n] = Optim.minimum(sol)
     xsol[n] = Optim.minimizer(sol)
     conv[n] = Optim.converged(sol)
