@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - dev
     tags: ['*']
   pull_request:
   workflow_dispatch:
@@ -28,6 +29,8 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
+          - macOS-latest
+          - windows-latest
         arch:
           - x64
     steps:
