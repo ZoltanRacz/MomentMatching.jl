@@ -6,11 +6,11 @@ setup = EstimationSetup(AR1Estimation("ar1estim"),"","")
 
 npest = NumParMM(setup; Nglo=100, Nloc=10, it = 3000)
 
-Tdis = 100
-Ndata = 3000
-Tdata = 300
-Nsample = 3
-Nseed = 2
+Tdis = 20
+Ndata = 500
+Tdata = 40
+Nsample = 4
+Nseed = 4
 auxmomsim = AR1AuxPar(Ndata,Tdata+Tdis,Tdis)
 
 aux = AuxiliaryParameters(AR1Estimation("ar1estim"),"")
