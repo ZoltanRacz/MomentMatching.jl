@@ -125,9 +125,9 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult,auxmo
     end
 
     if mmsolu.npmm.onlyglo==true
-        momsresc = mmsolu.pmm.momglo[1]
+        momsresc = mmsolu.momglo[1]
     else
-        momsresc = mmsolu.pmm.momloc[1]
+        momsresc = mmsolu.momloc[1]
     end
 
     mdifresc = mdiff(mode, momsresc, mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
