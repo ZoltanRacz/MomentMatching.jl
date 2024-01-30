@@ -111,7 +111,7 @@ The resulting distribution of estimated parameters gives us the bootstrap confid
 For diagnostic reasons, we repeat this procedure with Nseeds number of seeds, 
 if results vary a lot with different seeds, it is recommended to restart the whole estimation with bigger simulation parameters.
 """
-function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult,auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer)
+function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult,auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, local_alg::OptimizationAlgorithm)
     @unpack mode, modelname, typemom = estset
     @unpack aux, xloc, npmm = mmsolu
     bestx = xloc[1]
@@ -145,7 +145,7 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult,auxmo
                 sample_i = CartesianIndices((Nseeds,Nsamplesim))[fullind][2]
                 x = [[1.0]]
 
-                opt_loc!([1.0], x, [Vector{Float64}(undef,momleng)], [Vector{Float64}(undef,momleng)], [false], estset, npmm.it, aux, presh_repeat[seed_i], preal, mms[sample_i], bestx, 1)
+                opt_loc!([1.0], x, [Vector{Float64}(undef,momleng)], [Vector{Float64}(undef,momleng)], [false], local_alg, estset, npmm.it, aux, presh_repeat[seed_i], preal, mms[sample_i], bestx, 1)
 
                 x_ch[n] = x[1]
                 ProgressMeter.next!(prog)
@@ -282,10 +282,10 @@ Performs bootstrap and computes related quantities.
 - saving: Logical, true if results are to be saved.
 - filename_suffix: String with suffix to be used for file name when saving.
 """
-function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult,auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; saving::Bool = false, filename_suffix::String="")
+function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult,auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; saving::Bool = false, filename_suffix::String="",local_alg::OptimizationAlgorithm = NelderMead())
     @unpack mode, modelname, typemom = estset
     @unpack npmm = mmsolu
-    xs, moms = param_bootstrap(estset, mmsolu,auxmomsim, Nseeds, Nsamplesim)
+    xs, moms = param_bootstrap(estset, mmsolu,auxmomsim, Nseeds, Nsamplesim, local_alg)
     sm = sandwich_matrix(estset, mmsolu,moms)
     W = efficient_Wmat(moms)
     bootres = BootstrapResult(moms,xs,sqrt.(diag(sm)/Ndata),W)
