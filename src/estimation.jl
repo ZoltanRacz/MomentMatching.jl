@@ -160,12 +160,12 @@ $(FIELDS)
     labels::Vector{String}
     "Moments from the data to match"
     momdat::Vector{S}
-    "Mean moments from the data to match"
+    "Normalizing factor moments from the data to match"
     mmomdat::Vector{S}
     "Weighting matrix"
     W::Array{S,2}
     "Predetermined quantity to re-center moment condition"
-    mdifresc::Vector{S}
+    mdifrec::Vector{S}
 end
 
 
@@ -251,7 +251,7 @@ function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(
         momdat=mom,
         mmomdat=mmom,
         W=Wmat,
-        mdifresc=mdifr)
+        mdifrec=mdifr)
 end
 
 """
@@ -490,7 +490,7 @@ $(TYPEDSIGNATURES)
 Computes the objective function.
 """
 function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers)
-    @unpack lb_hard, ub_hard, W, momdat, mmomdat, mdifresc = pmm
+    @unpack lb_hard, ub_hard, W, momdat, mmomdat, mdifrec = pmm
     @unpack mode, modelname, typemom = estset
     flat_penalty = 10^15
 
@@ -501,7 +501,7 @@ function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationS
 #        try
             obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, preal) # obtains moments from model
     
-            mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifresc # computes deviation from moments in data
+            mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifrec # computes deviation from moments in data
 
             traditional_obj = mdif'*W*mdif # *(*(transpose(mdif), W), mdif) 
 
