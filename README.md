@@ -1,6 +1,7 @@
 # MomentMatching
 
 [![Build Status](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+[![codecov](https://codecov.io/gh/ZoltanRacz/MomentMatching.jl/graph/badge.svg?token=YLP96BUQ9S)](https://codecov.io/gh/ZoltanRacz/MomentMatching.jl)
 
 by Gualtiero Azzalini (Stockholm School of Economics)\
 Zoltan Racz (Stockholm School of Economics)
