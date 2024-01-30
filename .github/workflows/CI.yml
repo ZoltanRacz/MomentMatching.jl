@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - dev
     tags: ['*']
   pull_request:
   workflow_dispatch:
@@ -28,6 +29,8 @@ jobs:
           - 'nightly'
         os:
           - ubuntu-latest
+          - macOS-latest
+          - windows-latest
         arch:
           - x64
     steps:
@@ -39,3 +42,7 @@ jobs:
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+      - uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV }}
+
