@@ -1,6 +1,5 @@
 #= This file produceses figures and tables to display results from estimation.
 =#
-
 """
 $(TYPEDSIGNATURES)
 
@@ -13,42 +12,47 @@ Plots objective function around mimimizer.
 
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
-- saving: Logical, true if output has to be saved.
 - plotarg: Other inputs for plotting.
 """
-function fmarg(estset::EstimationSetup, mmsolu::EstimationResult, margobj::AbstractArray; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="", plotarg...)
+fmarg
+
+@userplot FMarg
+
+@recipe function f(h::FMarg; glob = h.args[2].npmm.onlyglo)
+    if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
+        !(h.args[2] isa EstimationResult) || !(h.args[3] isa AbstractArray)
+        error("fmarg should be given three inputs: an EstimationSetup, an EstimationResult and an AbstractArray. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu, margobj = h.args
     @unpack xglo, xloc, fglo, floc,npmm = mmsolu
 
     labs = labels(estset)
+    layout := size(margobj,2)
 
     glob ? x = xglo[1] : x = xloc[1]
     glob ? obj = fglo[1] : obj = floc[1]
 
-    fig = Any[]
+    merge!(plotattributes, fonts())
+    legend := :none
+    # grid := false
 
-    for k in axes(margobj, 2)
-
-        f = plot(margobj[:, k, 1], margobj[:, k, 2]; title=labs[k], label="",plotarg...)
-
-
-        xopt = x[k]
-        fopt = obj
-        scatter!([xopt], [fopt];
-            label="",
-            markercolor="red",
-            markersize=3,
-            markershape=:circle,
-            markeralpha=1.0,
-            markerstrokewidth=1, plotarg...)
-        push!(fig, f)
+    for k in axes(margobj,2)
+        @series begin
+            subplot := k
+            margobj[:, k, 1], margobj[:, k, 2]
+        end
+        @series begin
+            subplot := k
+            title := labs[k]
+            seriestype := scatter
+            markercolor := "red"
+            markersize := 3
+            markershape := :circle
+            markeralpha := 1.0
+            markerstrokewidth := 1
+            [x[k]], [obj]
+        end
     end
-    ffig = plot(fig...;fonts()...)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fmarg.pdf")
-
-    display(ffig)
-
-    return ffig
 end
 
 """
@@ -64,11 +68,19 @@ If solution is stable around minimizer then this indicates stability.
 
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
-- saving: Logical, true if output has to be saved.
 - firstN: How many observations to plot.
-- plotarg: Other inputs for plotting.
 """
-function fsanity(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool = mmsolu.npmm.onlyglo, saving::Bool=false, firstN::Integer = 1000, filename_suffix::String="", ylimss = fill(:none,1+length(mmsolu.xglo[1]))::AbstractVector)
+fsanity
+
+@userplot FSanity
+
+@recipe function f(h::FSanity; glob = h.args[2].npmm.onlyglo, firstN = 1000, ylimss = fill(:none,1+length(h.args[2].xglo[1])))
+    if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
+        !(h.args[2] isa EstimationResult)
+        error("fsanity should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
+    end
+    estset = h[1]
+    mmsolu = h[2]
     @unpack mode, modelname = estset
     @unpack fglo, floc, xglo, xloc, conv, npmm = mmsolu
 
@@ -77,61 +89,94 @@ function fsanity(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool =
 
     labs = labels(estset)
     lastindex = min(firstN,length(ob))
+    layout := size(xx,1) + 1
+    merge!(plotattributes, fonts())
+    legendfontsize := 4
 
-    fig = Any[]
-
-    f = plot(ob[1:lastindex]; title="objective", label="", titlefont=font(10), ylims = ylimss[1])
-    !glob && scatter!(collect(1:lastindex)[conv[1:lastindex]],ob[1:lastindex][conv[1:lastindex]]; label="converged", color=:green, markersize=2.0)
-    !glob && scatter!(collect(1:lastindex)[.!(conv[1:lastindex])],ob[1:lastindex][.!(conv[1:lastindex])]; label="not converged", color=:red, markersize=2.0)
-    push!(fig, f)
-
-    xx = hcat([x[j] for j in 1:length(ob)]...)
-
-    for k in axes(xx,1)
-        f = plot(xx[k, 1:lastindex], title=labs[k]; label="", ylims = ylimss[k+1])
-        plot!(ones(lastindex) * xx[k, 1]; label="", color=:red, linestyle=:dash)
-        push!(fig, f)
+    @series begin
+        subplot := 1
+        label := ""
+        title :="objective"
+        titlefont :=font(10)
+        ylims := ylimss[1]
+        ob[1:lastindex]
+    end
+    if !glob
+        @series begin
+            subplot := 1
+            seriestype := scatter
+            label := "converged"
+            color := :green
+            markersize := 2.0
+            collect(1:lastindex)[conv[1:lastindex]],ob[1:lastindex][conv[1:lastindex]]
+        end
+        @series begin
+            subplot := 1
+            seriestype := scatter
+            label := "not converged"
+            color := :red
+            markersize := 2.0
+            collect(1:lastindex)[.!(conv[1:lastindex])],ob[1:lastindex][.!(conv[1:lastindex])]
+        end
     end
 
-    ffig = plot(fig...; fonts()...,legendfontsize=4)
+    xx = hcat([x[j] for j in 1:length(ob)]...)
+    legend = :none
 
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fsanity.pdf")
-
-    display(ffig)
-
-    return ffig
+    for k in axes(xx,1)
+        @series begin
+            subplot := k + 1
+            xx[k, 1:lastindex]
+        end
+        @series begin
+            subplot := k + 1
+            title := labs[k]
+            color := :red
+            linestyle := :dash
+            ylims := ylimss[k+1]
+            ones(lastindex) * xx[k, 1]
+        end
+    end
 end
 
-function fglobounds(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
+@userplot FGlobounds
+
+@recipe function f(h::FGlobounds)
+    if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
+        !(h.args[2] isa EstimationResult)
+        error("fglobounds should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
+    end
     @unpack mode, modelname = estset
     @unpack xglo, npmm = mmsolu
 
-
     labs = labels(estset)
-    
-    fig = Any[]
-
     
     xx = hcat(xglo...)
 
     N = 10
     percs = [1/5^(i-1) for i in 1:N]
 
+    legend := :none
+    merge!(plotattributes, fonts())
+    layout := size(xx,1)
+
     for k in axes(xx,1)
         mins = [minimum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
         maxs = [maximum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
-        f = plot(percs,mins, title=labs[k]; label="", color=:blue, xaxis=:log10)
-        plot!(percs,maxs; label="", color=:blue, xaxis=:log10)
-        push!(fig, f)
+        @series begin
+            subplot := k
+            title := labs[k]
+            color := :blue 
+            xaxis := :log10
+            percs,mins
+        end
+        @series begin
+            subplot := k
+            color := :blue 
+            xaxis := :log10
+            percs,maxs
+        end
     end
-
-    ffig = plot(fig...; fonts()...,legendfontsize=4)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fglobounds.pdf")
-
-    display(ffig)
-
-    return ffig
 end
 
 
