@@ -1,3 +1,6 @@
+# useful lines for testing manually, while developing. Check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
+#using TestEnv
+#TestEnv.activate()
 using MomentMatching, Test, Plots, OptimizationOptimJL
 
 include("examples/minimalAR1.jl")
