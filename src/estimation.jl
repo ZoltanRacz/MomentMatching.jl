@@ -437,7 +437,7 @@ Perform estimation routine, local stage.
 function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
     problem = OptimizationProblem((y,unused) -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal, errorcatching), xcand)
     algorithm = pop!(local_opt_settings,:algorithm)
-    solution = solve(problem, algorithm; settings...)
+    solution = solve(problem, algorithm; local_opt_settings...)
     obj[n] = solution.objective
     xsol[n] = solution.u
     conv[n] = SciMLBase.successful_retcode(solution.retcode)
