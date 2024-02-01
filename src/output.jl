@@ -44,7 +44,7 @@ fmarg
         @series begin
             subplot := k
             title := labs[k]
-            seriestype := scatter
+            seriestype := :scatter
             markercolor := "red"
             markersize := 3
             markershape := :circle
@@ -97,14 +97,14 @@ fsanity
         subplot := 1
         label := ""
         title :="objective"
-        titlefont :=font(10)
+        titlefont := 10
         ylims := ylimss[1]
         ob[1:lastindex]
     end
     if !glob
         @series begin
             subplot := 1
-            seriestype := scatter
+            seriestype := :scatter
             label := "converged"
             color := :green
             markersize := 2.0
@@ -112,7 +112,7 @@ fsanity
         end
         @series begin
             subplot := 1
-            seriestype := scatter
+            seriestype := :scatter
             label := "not converged"
             color := :red
             markersize := 2.0
@@ -374,19 +374,15 @@ fmoms
     foreground_color_legend := nothing
     xlabel := xlb
     xrotation := 45
-    titlefont := font(14)
+    titlefont := 14
     titlelocation := :left
-    xguidefont := font(12)
-    yguidefont := font(12)
-    tickfont := font(10)
-    legendfont := font(10)
-            # left_margin=5Plots.PlotMeasures.mm
-            # right_margin=5Plots.PlotMeasures.mm
-            # top_margin=2.5Plots.PlotMeasures.mm
-            # bottom_margin=5Plots.PlotMeasures.mm
+    xguidefont := 12
+    yguidefont := 12
+    tickfont := 10
+    legendfont := 10
 
     # plot attributes
-    lc = [palette(:tab10)[1], palette(:tab10)[4]]
+    lc = [:blue, :red]
     ls = [:solid, :dash]
     msh = [:circle, :x]
     msz = [5, 6]
@@ -470,11 +466,6 @@ fbootstrap
             style := :dash
             [xopt]
         end
-        vline!([xopt];
-            label="",
-            linecolor="red",
-            width=2,
-            style=:dash)
         if ci==true
             @series begin
                 seriestype := :vline
@@ -495,12 +486,12 @@ Some plot attributes often used.
 function fonts()
     return Dict( 
     :xrotation=>45,
-    :titlefont=>font(8),
+    :titlefont=>8,
     :titlelocation=>:left,
-    :xguidefont=>font(6),
-    :yguidefont=>font(6),
-    :tickfont=>font(6),
-    :legendfont=>font(6)
+    :xguidefont=>6,
+    :yguidefont=>6,
+    :tickfont=>6,
+    :legendfont=>6
     )
 end
 
