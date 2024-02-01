@@ -657,12 +657,12 @@ Two-step estimation procedure.
 - saving_bestmodel: Logical, if some object linked to model solution corresponding to the best parameters are to be saved.
 - filename_suffix: String with suffix to be used for file name when saving.
 """
-function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; aux::AuxiliaryParameters=AuxiliaryParameters(estset), npmm::NumParMM=NumParMM(estset.mode), saving::Bool=true, saving_bestmodel::Bool=saving, filename_suffix::String="")
+function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; aux::AuxiliaryParameters=AuxiliaryParameters(estset), npmm::NumParMM=NumParMM(estset.mode), saving::Bool=true, saving_bestmodel::Bool=saving, filename_suffix::String="", errorcatching::Bool=false)
 
-    est_1st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_1st")
+    est_1st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_1st", errorcatching)
     boot_1st = param_bootstrap_result(estset, est_1st, auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix=filename_suffix * "_1st")
 
-    est_2st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_2st", Wmat=boot_1st.W)
+    est_2st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_2st", Wmat=boot_1st.W, errorcatching)
     boot_2st = param_bootstrap_result(estset, est_2st, auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix=filename_suffix * "_2st")
 
     return est_1st, boot_1st, est_2st, boot_2st
