@@ -470,8 +470,8 @@ fbootstrap
             @series begin
                 seriestype := :vline
                 linecolor := "red"
-                width := 2
-                style := :dot
+                width := 1.5
+                style := :dashdot
                 quantile(xdist, [cilev/2, 1.0 - cilev/2], sorted=true)
             end
         end
