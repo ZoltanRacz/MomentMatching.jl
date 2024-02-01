@@ -214,13 +214,13 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 """
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
-presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="", vararg...)
+presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="",errorcatching::Bool = false, vararg...)
 
     @assert(!threading_inside())
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
-    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix) # perform estimation
+    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix,errorcatching) # perform estimation
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix) # saving
 
@@ -325,7 +325,7 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine.
 """
-function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String)
+function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String, errorcatching::Bool)
     @unpack Nglo, Nloc, onlyglo, onlyloc = npmm
     @unpack lb_global, ub_global = pmm
     @unpack mode, modelname, typemom = estset
@@ -352,7 +352,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
                 preal = PreallocatedContainers(estset,aux) 
                 for n in eachindex(chunk) # do stuff for all index in chunk
                     fullind = chunk[n]
-                    objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh,preal)
+                    objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh,preal,errorcatching)
                     ProgressMeter.next!(prog)
                 end
                 # and then returns the result
@@ -403,8 +403,8 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk[n]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n)
-                objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
+                objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal,errorcatching)
                 ProgressMeter.next!(prog)
             end
             return objl_ch, xl_ch, moml_ch, conv_ch
@@ -441,21 +441,21 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
-    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal,errorcatching), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
     obj[n] = Optim.minimum(sol)
     xsol[n] = Optim.minimizer(sol)
     conv[n] = Optim.converged(sol)
     return nothing
 end
 
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64)
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
 
     opt = Opt(local_alg, length(xcand)) # or LN_COBYLA
     function funf(x::Vector, grad::Vector)
         if length(grad) > 0
         end
-        return objf!(mom[n], momnorm[n], estset, x, pmm, aux, presh, preal)
+        return objf!(mom[n], momnorm[n], estset, x, pmm, aux, presh, preal, errorcatching)
     end
     
     opt.min_objective = funf
@@ -489,7 +489,7 @@ $(TYPEDSIGNATURES)
 
 Computes the objective function.
 """
-function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers)
+function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, errorcatching::Bool)
     @unpack lb_hard, ub_hard, W, momdat, mmomdat, mdifrec = pmm
     @unpack mode, modelname, typemom = estset
     flat_penalty = 10^15
@@ -498,20 +498,33 @@ function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationS
         # println("guess is outside of feasible region: $x")
         return flat_penalty + norm(max.(x .- ub_hard, [0.0])) + norm(max.(lb_hard .- x, [0.0])) 
     else
-#        try
+        if errorcatching
+            try
+                _objf!(mom, momnorm, estset, x, pmm, aux, presh, preal)
+            catch e
+                println("unfortunate error with parameter vector $x") 
+                @error "ERROR: " exception=(e, catch_backtrace())
+                return flat_penalty # return penalty if error
+            end
+        else
+            _objf!(mom, momnorm, estset, x, pmm, aux, presh, preal)
+        end
+    end    
+end
+
+function _objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers)
+    @unpack W, momdat, mmomdat, mdifrec = pmm
+    @unpack mode, modelname, typemom = estset
+
+    
             obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, preal) # obtains moments from model
     
             mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifrec # computes deviation from moments in data
 
-            traditional_obj = mdif'*W*mdif # *(*(transpose(mdif), W), mdif) 
+            traditional_obj = mdif'*W*mdif
 
             return sqrt(traditional_obj/tr(W))
-            # return traditional_obj
-#        catch e
-#            println("unfortunate error with parameter vector $x") 
-#            return flat_penalty # return penalty if error
-#        end 
-    end
+            
     
 end
 
