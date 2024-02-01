@@ -1,6 +1,5 @@
 #= This file produceses figures and tables to display results from estimation.
 =#
-
 """
 $(TYPEDSIGNATURES)
 
@@ -13,42 +12,47 @@ Plots objective function around mimimizer.
 
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
-- saving: Logical, true if output has to be saved.
 - plotarg: Other inputs for plotting.
 """
-function fmarg(estset::EstimationSetup, mmsolu::EstimationResult, margobj::AbstractArray; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="", plotarg...)
-    @unpack xglo, xloc, fglo, floc,npmm = mmsolu
+fmarg
+
+@userplot FMarg
+
+@recipe function f(h::FMarg; glob=h.args[2].npmm.onlyglo)
+    if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
+       !(h.args[2] isa EstimationResult) || !(h.args[3] isa AbstractArray)
+        error("fmarg should be given three inputs: an EstimationSetup, an EstimationResult and an AbstractArray. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu, margobj = h.args
+    @unpack xglo, xloc, fglo, floc, npmm = mmsolu
 
     labs = labels(estset)
+    layout := size(margobj, 2)
 
     glob ? x = xglo[1] : x = xloc[1]
     glob ? obj = fglo[1] : obj = floc[1]
 
-    fig = Any[]
+    merge!(plotattributes, fonts())
+    legend := :none
+    # grid := false
 
     for k in axes(margobj, 2)
-
-        f = plot(margobj[:, k, 1], margobj[:, k, 2]; title=labs[k], label="",plotarg...)
-
-
-        xopt = x[k]
-        fopt = obj
-        scatter!([xopt], [fopt];
-            label="",
-            markercolor="red",
-            markersize=3,
-            markershape=:circle,
-            markeralpha=1.0,
-            markerstrokewidth=1, plotarg...)
-        push!(fig, f)
+        @series begin
+            subplot := k
+            margobj[:, k, 1], margobj[:, k, 2]
+        end
+        @series begin
+            subplot := k
+            title := labs[k]
+            seriestype := :scatter
+            markercolor := "red"
+            markersize := 3
+            markershape := :circle
+            markeralpha := 1.0
+            markerstrokewidth := 1
+            [x[k]], [obj]
+        end
     end
-    ffig = plot(fig...;fonts()...)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fmarg.pdf")
-
-    display(ffig)
-
-    return ffig
 end
 
 """
@@ -64,11 +68,18 @@ If solution is stable around minimizer then this indicates stability.
 
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
-- saving: Logical, true if output has to be saved.
 - firstN: How many observations to plot.
-- plotarg: Other inputs for plotting.
 """
-function fsanity(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool = mmsolu.npmm.onlyglo, saving::Bool=false, firstN::Integer = 1000, filename_suffix::String="", ylimss = fill(:none,1+length(mmsolu.xglo[1]))::AbstractVector)
+fsanity
+
+@userplot FSanity
+
+@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].xglo[1])))
+    if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
+       !(h.args[2] isa EstimationResult)
+        error("fsanity should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu = h.args
     @unpack mode, modelname = estset
     @unpack fglo, floc, xglo, xloc, conv, npmm = mmsolu
 
@@ -76,62 +87,95 @@ function fsanity(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool =
     glob ? x = xglo : x = xloc
 
     labs = labels(estset)
-    lastindex = min(firstN,length(ob))
-
-    fig = Any[]
-
-    f = plot(ob[1:lastindex]; title="objective", label="", titlefont=font(10), ylims = ylimss[1])
-    !glob && scatter!(collect(1:lastindex)[conv[1:lastindex]],ob[1:lastindex][conv[1:lastindex]]; label="converged", color=:green, markersize=2.0)
-    !glob && scatter!(collect(1:lastindex)[.!(conv[1:lastindex])],ob[1:lastindex][.!(conv[1:lastindex])]; label="not converged", color=:red, markersize=2.0)
-    push!(fig, f)
-
+    lastindex = min(firstN, length(ob))
     xx = hcat([x[j] for j in 1:length(ob)]...)
+    layout := size(xx, 1) + 1
+    merge!(plotattributes, fonts())
+    legendfontsize := 4
 
-    for k in axes(xx,1)
-        f = plot(xx[k, 1:lastindex], title=labs[k]; label="", ylims = ylimss[k+1])
-        plot!(ones(lastindex) * xx[k, 1]; label="", color=:red, linestyle=:dash)
-        push!(fig, f)
+    @series begin
+        subplot := 1
+        label := ""
+        title := "objective"
+        titlefont := 10
+        ylims := ylimss[1]
+        ob[1:lastindex]
+    end
+    if !glob
+        @series begin
+            subplot := 1
+            seriestype := :scatter
+            label := "converged"
+            color := :green
+            markersize := 2.0
+            collect(1:lastindex)[conv[1:lastindex]], ob[1:lastindex][conv[1:lastindex]]
+        end
+        @series begin
+            subplot := 1
+            seriestype := :scatter
+            label := "not converged"
+            color := :red
+            markersize := 2.0
+            collect(1:lastindex)[.!(conv[1:lastindex])], ob[1:lastindex][.!(conv[1:lastindex])]
+        end
     end
 
-    ffig = plot(fig...; fonts()...,legendfontsize=4)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fsanity.pdf")
-
-    display(ffig)
-
-    return ffig
+    for k in axes(xx, 1)
+        subplot := k + 1
+        @series begin
+            label := ""
+            xx[k, 1:lastindex]
+        end
+        @series begin
+            label := ""
+            title := labs[k]
+            color := :red
+            linestyle := :dash
+            ylims := ylimss[k+1]
+            ones(lastindex) * xx[k, 1]
+        end
+    end
 end
 
-function fglobounds(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
+@userplot FGlobounds
+
+@recipe function f(h::FGlobounds)
+    if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
+       !(h.args[2] isa EstimationResult)
+        error("fglobounds should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu = h.args
     @unpack mode, modelname = estset
     @unpack xglo, npmm = mmsolu
 
-
     labs = labels(estset)
-    
-    fig = Any[]
 
-    
     xx = hcat(xglo...)
 
     N = 10
-    percs = [1/5^(i-1) for i in 1:N]
+    percs = [1 / 5^(i - 1) for i in 1:N]
 
-    for k in axes(xx,1)
-        mins = [minimum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
-        maxs = [maximum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
-        f = plot(percs,mins, title=labs[k]; label="", color=:blue, xaxis=:log10)
-        plot!(percs,maxs; label="", color=:blue, xaxis=:log10)
-        push!(fig, f)
+    legend := :none
+    merge!(plotattributes, fonts())
+    layout := size(xx, 1)
+
+    for k in axes(xx, 1)
+        mins = [minimum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
+        maxs = [maximum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
+        @series begin
+            subplot := k
+            title := labs[k]
+            color := :blue
+            xaxis := :log10
+            percs, mins
+        end
+        @series begin
+            subplot := k
+            color := :blue
+            xaxis := :log10
+            percs, maxs
+        end
     end
-
-    ffig = plot(fig...; fonts()...,legendfontsize=4)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fglobounds.pdf")
-
-    display(ffig)
-
-    return ffig
 end
 
 
@@ -147,13 +191,13 @@ Creates DataFrame with parameter estimates.
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
 """
-function tableest_inner(estset::EstimationSetup,mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo)
-    @unpack xglo, xloc,npmm = mmsolu
+function tableest_inner(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo)
+    @unpack xglo, xloc, npmm = mmsolu
 
     labs = labels(estset)
     glob ? x = xglo[1] : x = xloc[1]
 
-    return DataFrame(:Variable=>labs, Symbol("Point estimate")=>round.(x, digits=3))
+    return DataFrame(:Variable => labs, Symbol("Point estimate") => round.(x, digits=3))
 end
 
 """
@@ -169,11 +213,11 @@ Creates DataFrame with parameter estimates and optionally saves it.
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
 
-    df = tableest_inner(estset,mmsolu; glob)
+    df = tableest_inner(estset, mmsolu; glob)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest.csv", df)
 
@@ -193,22 +237,25 @@ Creates DataFrame with parameter estimates and optionally saves it, bootstrap ca
 - boot: Instance of BootstrapResult. See separate documentation [`BootstrapResult`](@ref).
 
 # Optional arguments
+- cilev: Level of confidence intervals.
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
-    @unpack xs,sd_asymp = boot
+    @unpack xs, sd_asymp = boot
 
-    df = tableest_inner(estset,mmsolu; glob)
+    df = tableest_inner(estset, mmsolu; glob)
 
-    bs_sds = [sqrt(var(xs[i,:,:])) for i in axes(xs,1)]
-    ratios = [mean(var(xs[i,:,:]; dims=1))/var(xs[i,:,:]) for i in axes(xs,1)]
+    bs_sds = [sqrt(var(xs[i, :, :])) for i in axes(xs, 1)]
+    ratios = [mean(var(xs[i, :, :]; dims=1)) / var(xs[i, :, :]) for i in axes(xs, 1)]
+    bs_ci = [round.(quantile(xs[i, :, :][:], [cilev / 2, 1.0 - cilev / 2]), digits=dgt) for i in axes(xs, 1)]
 
-    df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=3)
-    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=3)
-    df[:, :("Seed share of variance")] = round.(ratios, digits=3)
+    df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=dgt)
+    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=dgt)
+    df[:, "Bootstrapped $(100*(1-cilev))% CI"] = bs_ci
+    df[:, :("Seed share of variance")] = round.(ratios, digits=dgt)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest_boot.csv", df)
 
@@ -234,7 +281,7 @@ function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult)
 
     df = momentnames(mode, typemom)
 
-    df[:, :("Sample values")] = round.(momsdata[:,1], digits=3)
+    df[:, :("Sample values")] = round.(momsdata[:, 1], digits=3)
     df[:, :("Model values")] = round.(momloc[1], digits=3)
 
     return df
@@ -278,15 +325,15 @@ Compares model-generated moments with data in a table and optionally saves outpu
 # Optional arguments
 - saving: Logical, true if output has to be saved.
 """
-function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool=false, filename_suffix::String="")
+function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; dgt::Int64=3, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
     @unpack moms, W = boot
 
     df = tablemoms_inner(estset, mmsolu)
 
-    df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=3)
-    df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=3)
+    df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=dgt)
+    df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=dgt)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tablemoms_boot.csv", df)
 
@@ -300,7 +347,17 @@ $(TYPEDSIGNATURES)
 
 compares model-generated moments with data in a plot
 """
-function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
+fmoms
+
+@userplot FMoms
+
+@recipe function f(h::FMoms)
+    if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
+       !(h.args[2] isa EstimationResult) ||
+       !(h.args[3] isa Integer)
+        error("fmoms should be given three inputs: an EstimationSetup, an EstimationResult and an Integer. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu, ff = h.args
     @unpack momloc, npmm = mmsolu
 
     df = tablemoms_inner(estset, mmsolu)
@@ -309,61 +366,47 @@ function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=f
         insertcols!(df, 1, :empty => "Moments")
     end
 
-    titles = unique(df[:,1])
+    titles = unique(df[:, 1])
     xlb = names(df)[2]
 
-    figs = Array{Plots.Plot{Plots.GRBackend},1}(undef, length(titles)) # initialize array of figures
+    legend := :topleft
+    size := (650, 540)
+    foreground_color_legend := nothing
+    xlabel := xlb
+    xrotation := 45
+    titlefont := 14
+    titlelocation := :left
+    xguidefont := 12
+    yguidefont := 12
+    tickfont := 10
+    legendfont := 10
 
     # plot attributes
-    lc = [palette(:tab10)[1], palette(:tab10)[4]]
+    lc = [:blue, :red]
     ls = [:solid, :dash]
     msh = [:circle, :x]
     msz = [5, 6]
-    lb = ["Data", "Model"]
-#    yls = [(0.3, 1.0), (-0.3, 0.3), (0.3, 1.0), (-0.3, 0.3)]
-
-    for ff in eachindex(titles)
-        figs[ff] = plot()
-        for k in eachindex(lb)
-            lb1 = lb[k]
-            if ff != 1
-                lb1 = ""
-            end
-            plot!(df[df[:,1] .== titles[ff], 2], df[df[:,1] .== titles[ff], 3:4][:,k],
-                label=lb1,
-                linecolor=lc[k],
-                linestyle=ls[k],
-                linewidth=1.5,
-                markercolor=lc[k],
-                markersize=msz[k],
-                markershape=msh[k],
-                markeralpha=1.0,
-                markerstrokecolor=lc[k],
-                markerstrokewidth=2)
-        end
-        figs[ff] = plot(figs[ff], title=titles[ff],
-            legend=:topleft,
-            size=(650, 540), 
-            #ylims=yls[ff],
-            foreground_color_legend=nothing,
-            xlabel=xlb,
-            xrotation=45,
-            titlefont=font(14),
-            titlelocation=:left,
-            xguidefont=font(12),
-            yguidefont=font(12),
-            tickfont=font(10),
-            legendfont=font(10),
-            left_margin=5Plots.PlotMeasures.mm,
-            right_margin=5Plots.PlotMeasures.mm,
-            top_margin=2.5Plots.PlotMeasures.mm,
-            bottom_margin=5Plots.PlotMeasures.mm)
-
-            display(figs[ff])
-
-        saving && savefig(figs[ff], estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * titles_s[ff] * "_fmoms.pdf")
+    if ff == 1
+        lb = ["Data", "Model"]
+    else
+        lb = ["", ""]
     end
-    return figs
+    for k in 1:2
+        @series begin
+
+            label := lb[k]
+            linecolor := lc[k]
+            linestyle := ls[k]
+            linewidth := 1.5
+            markercolor := lc[k]
+            markersize := msz[k]
+            markershape := msh[k]
+            markeralpha := 1.0
+            markerstrokecolor := lc[k]
+            markerstrokewidth := 2
+            df[df[:, 1].==titles[ff], 2], df[df[:, 1].==titles[ff], 3:4][:, k]
+        end
+    end
 end
 
 """
@@ -377,40 +420,62 @@ Plot bootstrap results.
 - xs: Array with bootstrap values.
 
 # Optional arguments
+- ci: Logical, true if confidence intervals should be plotted.
+- cilev: Level of confidence intervals.
 - saving: Logical, true if output has to be saved.
 - plotarg: Other inputs for plotting.
 """
-function fbootstrap(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool=false, filename_suffix::String="", trim::Real = 0.01)
-    @unpack npmm,xloc = mmsolu
+fbootstrap
+
+@userplot FBootstrap
+
+@recipe function f(h::FBootstrap; ci=true, cilev=0.05, trim=0.01)
+    if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
+       !(h.args[2] isa EstimationResult) ||
+       !(h.args[3] isa BootstrapResult)
+        error("fmoms should be given three inputs: an EstimationSetup, an EstimationResult and a BootstrapResult. Got: $(typeof(h.args))")
+    end
+    estset, mmsolu, boot = h.args
+    @unpack npmm, xloc = mmsolu
     @unpack xs = boot
 
     labs = labels(estset)
-
-    fig = Any[]
+    layout := size(xs, 1)
+    merge!(plotattributes, fonts())
 
     for k in axes(xs, 1)
-        xdist = sort(xs[k,:,:][:])
-        toskip = floor(Int,length(xdist)*trim)
+        xdist = sort(xs[k, :, :][:])
+        toskip = floor(Int, length(xdist) * trim)
         xdist_trimmed = xdist[(1+toskip):(end-toskip)]
 
-        f = histogram(xdist_trimmed; title=labs[k], label="")
+        subplot := k
+        legend := :none
 
+        @series begin
+            seriestype := :histogram
+            title := labs[k]
+            xdist_trimmed
+        end
 
         xopt = xloc[1][k]
-        vline!([xopt];
-            label="",
-            markercolor="red",
-            width=3,
-            style=:dash)
-        push!(fig, f)
+
+        @series begin
+            seriestype := :vline
+            linecolor := "red"
+            width := 2
+            style := :dash
+            [xopt]
+        end
+        if ci == true
+            @series begin
+                seriestype := :vline
+                linecolor := "red"
+                width := 1.5
+                style := :dashdot
+                quantile(xdist, [cilev / 2, 1.0 - cilev / 2], sorted=true)
+            end
+        end
     end
-    ffig = plot(fig...;fonts()...)
-
-    saving && savefig(ffig, estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_fboot.pdf")
-
-    display(ffig)
-
-    return ffig
 end
 
 """
@@ -419,29 +484,13 @@ $(TYPEDSIGNATURES)
 Some plot attributes often used.
 """
 function fonts()
-    return Dict( 
-    :xrotation=>45,
-    :titlefont=>font(8),
-    :titlelocation=>:left,
-    :xguidefont=>font(6),
-    :yguidefont=>font(6),
-    :tickfont=>font(6),
-    :legendfont=>font(6)
+    return Dict(
+        :xrotation => 45,
+        :titlefont => 8,
+        :titlelocation => :left,
+        :xguidefont => 6,
+        :yguidefont => 6,
+        :tickfont => 6,
+        :legendfont => 6
     )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Produce all figures and tables
-"""
-function alloutputs(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool = true, filename_suffix::String="")
-    marg = marginal_fobj(estset, mmsolu)
-    fmarg(estset, mmsolu,marg; saving, filename_suffix)
-    fsanity(estset, mmsolu; saving, filename_suffix)
-    tableest(estset, mmsolu, boot; saving, filename_suffix) 
-    fmoms(estset, mmsolu; saving, filename_suffix) 
-    tablemoms(estset, mmsolu, boot; saving, filename_suffix) 
-    fbootstrap(estset, mmsolu, boot; saving, filename_suffix)
-    return nothing
 end
