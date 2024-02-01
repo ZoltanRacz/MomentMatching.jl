@@ -1,4 +1,4 @@
-using MomentMatching, Test
+using MomentMatching, Test, Plots
 
 include("examples/minimalAR1.jl")
 
@@ -33,3 +33,11 @@ est_1st = estimation(setup; npmm=npest, saving = false)
 boot_1st = param_bootstrap_result(setup, est_1st,auxmomsim, Nseed, Nsample, Ndata, saving = false)
 @test boot_1st isa BootstrapResult
 
+marg = marginal_fobj(setup, est_1st, 17, fill(0.1,3))
+fmarg(setup, est_1st, marg)
+
+fsanity(setup, est_1st)
+
+fmoms(setup, est_1st, 1)
+
+fbootstrap(setup, est_1st, boot_1st)

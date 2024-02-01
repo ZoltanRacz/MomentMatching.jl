@@ -3,9 +3,7 @@ module MomentMatching
 # Dependencies
 # we might want to specify which functions we need and import only those
 
-using Plots # for functions providing figures. Should check if we can avoid via recipes. Calling Plot in a library is not adviced, since people use different back-ends.
-using Plots: plot, plot! # importing these functions explicitly avoids bug in vscode underlying all plot functions. Should check if still needed or has been fixed.
-gr()
+using RecipesBase # to write code for figures
 
 using LinearAlgebra: diagm, tr, norm, cond, diag
 #using Statistics # let's try if we get away with commenting this out. StatsBase is bigger and calls many functions from Statistics anyways.
