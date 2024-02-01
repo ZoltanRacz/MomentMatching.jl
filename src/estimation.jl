@@ -17,9 +17,6 @@ and appropriate versions of functions (TO CHECK THAT THIS LIST IS COMPLETE)
 need to be defined. See modest.jl for an example.
 =#
 
-@warn("Changes 1: estimation now accepts vectors of starting guesses in onlyloc mode")
-
-
 # DEFINE STRUCTURES AND TYPES 
 
 """
@@ -52,7 +49,6 @@ Supplies non-estimated auxuliary parameters, which are needed to compute model m
 """
 abstract type AuxiliaryParameters end
 
-@warn("We need to check ")
 """
 $(TYPEDSIGNATURES)
 
@@ -481,8 +477,6 @@ function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vect
 end
 
 ## AUXILIARY FUNCTIONS 
-
-@warn("error catching is off!!")
 
 """
 $(TYPEDSIGNATURES)
