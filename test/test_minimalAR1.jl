@@ -1,4 +1,4 @@
-using MomentMatching, Test
+using MomentMatching, Test, Plots
 
 include("examples/minimalAR1.jl")
 
