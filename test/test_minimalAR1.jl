@@ -4,7 +4,7 @@ include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
-npest = NumParMM(setup; Nglo=100, Nloc=10, it=3000)
+npest = NumParMM(setup; Nglo=100, Nloc=10)
 
 Tdis = 20
 Ndata = 500
