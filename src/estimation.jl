@@ -442,6 +442,7 @@ function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vect
     obj[n] = solution.objective
     xsol[n] = solution.u
     conv[n] = SciMLBase.successful_retcode(solution.retcode)
+
     return nothing
 end
 
