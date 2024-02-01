@@ -24,12 +24,12 @@ export estimation, # main functions
 
        # from estimation.jl:
        # Abstract types and functions which (might) need 
-       # mode-specific subtypes or methods.
+       # mode-specific subtypes ...
        AuxiliaryParameters,
        EstimationMode,
-       PreallocatedContainers,       
-       PredrawnShocks,
-
+       PreallocatedContainers,
+       PredrawnShocks, 
+       # ... or methods.
        datamoments,
        default_weight_matrix,
        ftypemom,

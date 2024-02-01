@@ -131,7 +131,7 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
-function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where T<:Integer
+function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where {T<:Integer}
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
     return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc, NelderMead())
 end
@@ -173,7 +173,7 @@ Structure to store output of matching moments estimation procedure.
 # Fields
 $(FIELDS)
 """
-struct EstimationResult{S<:AbstractFloat,T<:Integer,U<:AuxiliaryParameters, V<:PredrawnShocks}
+struct EstimationResult{S<:AbstractFloat,T<:Integer,U<:AuxiliaryParameters,V<:PredrawnShocks}
     "Numerical parameters"
     npmm::NumParMM{S,T}
     "Auxiliary inputs"
@@ -210,13 +210,13 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 """
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
-presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer = 1, filename_suffix::String="",errorcatching::Bool = false, vararg...)
+    presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer=1, filename_suffix::String="", errorcatching::Bool=false, vararg...)
 
     @assert(!threading_inside())
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
-    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix,errorcatching) # perform estimation
+    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix, errorcatching) # perform estimation
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix) # saving
 
@@ -228,7 +228,7 @@ $(TYPEDSIGNATURES)
 
 Initializes structure to store matching moments estimation inputs. See separate documentation [`ParMM`](@ref).
 """
-function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(estset.mode, estset.typemom), Wmat=default_weight_matrix(estset, size(moms2, 1)), mdifr=zeros(size(moms2,1)))
+function initMMmodel(estset::EstimationSetup, npmm::NumParMM; moms2=datamoments(estset.mode, estset.typemom), Wmat=default_weight_matrix(estset, size(moms2, 1)), mdifr=zeros(size(moms2, 1)))
     @unpack full_lb_global, full_ub_global = npmm
     @unpack mode, modelname = estset
 
@@ -272,11 +272,11 @@ $(TYPEDSIGNATURES)
 
 Set up default weighting matrix to compute the objective function. Should be defined for any subtype of [`EstimationMode`](@ref) else returns unitary matrix.
 """
-function default_weight_matrix(mode::EstimationMode, typemom::String, n::Integer) 
+function default_weight_matrix(mode::EstimationMode, typemom::String, n::Integer)
     return diagm(0 => ones(n))
 end
 
-default_weight_matrix(estset::EstimationSetup,n::Integer) = default_weight_matrix(estset.mode, estset.typemom, n)
+default_weight_matrix(estset::EstimationSetup, n::Integer) = default_weight_matrix(estset.mode, estset.typemom, n)
 
 """
 $(TYPEDSIGNATURES)
@@ -329,7 +329,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
     onlyloc && onlyglo && throw(error("should do either local or global or both"))
 
     objg = fill(-1.0, Nglo)
-    momg = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:Nglo]
+    momg = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:Nglo]
     s = SobolSeq(lb_global, ub_global)
     xg = [Sobol.next!(s) for i in 1:Nglo]
     if !onlyloc
@@ -339,16 +339,16 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
         prog = Progress(Nglo; desc="Performing global stage...")
         tasks = map(chunks) do chunk
             # Each chunk gets its own spawned task that does its own local, sequential work. every task is assigned to one thread.
-            
+
             Threads.@spawn begin
                 # preallocate once per chunk
-                objg_ch = Vector{Float64}(undef,length(chunk))
-                momg_ch = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:length(chunk)]
-                momnormg_ch = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:length(chunk)]
-                preal = PreallocatedContainers(estset,aux) 
+                objg_ch = Vector{Float64}(undef, length(chunk))
+                momg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+                momnormg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+                preal = PreallocatedContainers(estset, aux)
                 for n in eachindex(chunk) # do stuff for all index in chunk
                     fullind = chunk[n]
-                    objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh,preal,errorcatching)
+                    objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
                     ProgressMeter.next!(prog)
                 end
                 # and then returns the result
@@ -358,22 +358,22 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
         outstates = fetch.(tasks) # collect results from tasks
         finish!(prog)
 
-        for (i,chunk) in enumerate(chunks) # organize results in final form
+        for (i, chunk) in enumerate(chunks) # organize results in final form
             objg[chunk] = outstates[i][1]
             momg[chunk] = outstates[i][2]
         end
-        
+
         if onlyglo
 
             if saving_bestmodel
                 for i in 1:number_bestmodel
-                    obj_mom(mode, xg[sortperm(objg)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset,npmm,filename_suffix) * "_$(i)")
+                    obj_mom(mode, xg[sortperm(objg)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
                 end
             end
 
-            return EstimationResult(npmm, aux, presh, xlocstart, pmm, 
-            objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)], 
-            [0.0], [[0.0]], [[0.0]], [false])
+            return EstimationResult(npmm, aux, presh, xlocstart, pmm,
+                objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)],
+                [0.0], [[0.0]], [[0.0]], [false])
         end
 
         xsort = xg[sortperm(objg)[1:Nloc]]
@@ -384,23 +384,23 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
 
     objl = Vector{Float64}(undef, Nloc)
     xl = deepcopy(xsort)
-    moml = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:Nloc]
+    moml = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:Nloc]
     conv = Vector{Bool}(undef, Nloc)
 
     chunks = getchunks(Nloc)
     prog = Progress(Nloc; desc="Performing local stage...")
     tasks = map(chunks) do chunk
         Threads.@spawn begin
-            objl_ch = Vector{Float64}(undef,length(chunk))
-            xl_ch = [Vector{Float64}(undef,length(xl[1])) for _ in 1:length(chunk)]
-            moml_ch = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:length(chunk)]
-            momnorml_ch = [Vector{Float64}(undef,length(pmm.momdat)) for _ in 1:length(chunk)]
+            objl_ch = Vector{Float64}(undef, length(chunk))
+            xl_ch = [Vector{Float64}(undef, length(xl[1])) for _ in 1:length(chunk)]
+            moml_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+            momnorml_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
             conv_ch = Array{Bool}(undef, length(chunk))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk[n]
                 opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
-                objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal,errorcatching)
+                objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal, errorcatching)
                 ProgressMeter.next!(prog)
             end
             return objl_ch, xl_ch, moml_ch, conv_ch
@@ -409,7 +409,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
     outstates = fetch.(tasks)
     finish!(prog)
 
-    for (i,chunk) in enumerate(chunks)
+    for (i, chunk) in enumerate(chunks)
         objl[chunk] = outstates[i][1]
         xl[chunk] = outstates[i][2]
         moml[chunk] = outstates[i][3]
@@ -418,16 +418,16 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
 
     if saving_bestmodel
         for i in 1:number_bestmodel
-            obj_mom(mode, xl[sortperm(objl)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset,npmm,filename_suffix) * "_$(i)")
+            obj_mom(mode, xl[sortperm(objl)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
         end
     end
 
-    return EstimationResult(npmm, aux, presh, xlocstart, pmm, 
-    objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)], 
-    objl[sortperm(objl)], xl[sortperm(objl)], moml[sortperm(objl)], conv[sortperm(objl)])
+    return EstimationResult(npmm, aux, presh, xlocstart, pmm,
+        objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)],
+        objl[sortperm(objl)], xl[sortperm(objl)], moml[sortperm(objl)], conv[sortperm(objl)])
 end
 
-function getchunks(N::Integer; tasks_per_thread::Integer = 2)
+function getchunks(N::Integer; tasks_per_thread::Integer=2)
     chunk_size = max(1, N ÷ (tasks_per_thread * Threads.nthreads()))
     return Iterators.partition(1:N, chunk_size)
 end
@@ -437,15 +437,15 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
-    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal,errorcatching), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer, estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal, errorcatching), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
     obj[n] = Optim.minimum(sol)
     xsol[n] = Optim.minimizer(sol)
     conv[n] = Optim.converged(sol)
     return nothing
 end
 
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol,estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol, estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
 
     opt = Opt(local_alg, length(xcand)) # or LN_COBYLA
     function funf(x::Vector, grad::Vector)
@@ -453,17 +453,17 @@ function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vect
         end
         return objf!(mom[n], momnorm[n], estset, x, pmm, aux, presh, preal, errorcatching)
     end
-    
+
     opt.min_objective = funf
-    
+
     opt.lower_bounds = pmm.lb_hard
     opt.upper_bounds = pmm.ub_hard
-    
+
     opt.maxeval = iter
-    
+
     # ? opt.initial_step = [0.01,0.002,0.1,0.01,0.001,0.01,0.005,0.05]
-    
-    (optf,optx,ret) = NLopt.optimize(opt, xcand)
+
+    (optf, optx, ret) = NLopt.optimize(opt, xcand)
 
     obj[n] = optf
     xsol[n] = optx
@@ -490,36 +490,36 @@ function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationS
 
     if !all(x .>= lb_hard) || !all(x .<= ub_hard) # return penalty if outside bounds
         # println("guess is outside of feasible region: $x")
-        return flat_penalty + norm(max.(x .- ub_hard, [0.0])) + norm(max.(lb_hard .- x, [0.0])) 
+        return flat_penalty + norm(max.(x .- ub_hard, [0.0])) + norm(max.(lb_hard .- x, [0.0]))
     else
         if errorcatching
             try
                 _objf!(mom, momnorm, estset, x, pmm, aux, presh, preal)
             catch e
-                println("unfortunate error with parameter vector $x") 
-                @error "ERROR: " exception=(e, catch_backtrace())
+                println("unfortunate error with parameter vector $x")
+                @error "ERROR: " exception = (e, catch_backtrace())
                 return flat_penalty # return penalty if error
             end
         else
             _objf!(mom, momnorm, estset, x, pmm, aux, presh, preal)
         end
-    end    
+    end
 end
 
 function _objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers)
     @unpack W, momdat, mmomdat, mdifrec = pmm
     @unpack mode, modelname, typemom = estset
 
-    
-            obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, preal) # obtains moments from model
-    
-            mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifrec # computes deviation from moments in data
 
-            traditional_obj = mdif'*W*mdif
+    obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, preal) # obtains moments from model
 
-            return sqrt(traditional_obj/tr(W))
-            
-    
+    mdif = mdiff(mode, mom, momdat, mmomdat) .- mdifrec # computes deviation from moments in data
+
+    traditional_obj = mdif' * W * mdif
+
+    return sqrt(traditional_obj / tr(W))
+
+
 end
 
 """
@@ -527,15 +527,15 @@ $(TYPEDSIGNATURES)
 
 Routine to compute moments in model under a given parameter guess. Should be defined for any subtype of [`EstimationMode`](@ref).
 """
-function obj_mom!(mom::AbstractVector,momnorm::AbstractVector,mode::EstimationMode, x::Vector{Float64}, modelname::String, typemom::String, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers; saving_model::Bool=false, filename::String="") 
+function obj_mom!(mom::AbstractVector, momnorm::AbstractVector, mode::EstimationMode, x::Vector{Float64}, modelname::String, typemom::String, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers; saving_model::Bool=false, filename::String="")
     throw(error("a separate method has to be written for $(typeof(mode))"))
 end
 
 function obj_mom(mode::EstimationMode, x::Vector{Float64}, modelname::String, typemom::String, aux::AuxiliaryParameters, presh::PredrawnShocks; saving_model::Bool=false, filename::String="")
-    momlen = length(momentnames(mode,typemom)[!,1])
-    mom = Vector{Float64}(undef,momlen)
-    momnorm = Vector{Float64}(undef,momlen)
-    obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, PreallocatedContainers(mode, modelname, typemom, aux); saving_model, filename) 
+    momlen = length(momentnames(mode, typemom)[!, 1])
+    mom = Vector{Float64}(undef, momlen)
+    momnorm = Vector{Float64}(undef, momlen)
+    obj_mom!(mom, momnorm, mode, x, modelname, typemom, aux, presh, PreallocatedContainers(mode, modelname, typemom, aux); saving_model, filename)
     return mom
 end
 
@@ -571,7 +571,7 @@ Saving required elements.
 """
 function save_estimation(estset::EstimationSetup, npmm::NumParMM, mmsolu::EstimationResult, filename_suffix::String)
 
-    filename = estimation_result_path() * estimation_name(estset,npmm, filename_suffix) * ".jld"
+    filename = estimation_result_path() * estimation_name(estset, npmm, filename_suffix) * ".jld"
 
     save(filename, "mmsolu", mmsolu, "estset", estset)
     return nothing
@@ -582,9 +582,9 @@ $(TYPEDSIGNATURES)
 
 Saving required elements, lighter version to save memory. 
 """
-function save_estimation_lightweight(estset::EstimationSetup, mmsolu::EstimationResult; filename_suffix::String = "", filename::String = estimation_name(estset,mmsolu.npmm, filename_suffix), bestN::Integer = 5000)
+function save_estimation_lightweight(estset::EstimationSetup, mmsolu::EstimationResult; filename_suffix::String="", filename::String=estimation_name(estset, mmsolu.npmm, filename_suffix), bestN::Integer=5000)
 
-    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(),mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN,end)], mmsolu.xglo[1:min(bestN,end)], mmsolu.momglo[1:min(bestN,end)], mmsolu.floc[1:min(bestN,end)], mmsolu.xloc[1:min(bestN,end)], mmsolu.momloc[1:min(bestN,end)], mmsolu.conv[1:min(bestN,end)])
+    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(), mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN, end)], mmsolu.xglo[1:min(bestN, end)], mmsolu.momglo[1:min(bestN, end)], mmsolu.floc[1:min(bestN, end)], mmsolu.xloc[1:min(bestN, end)], mmsolu.momloc[1:min(bestN, end)], mmsolu.conv[1:min(bestN, end)])
 
     filename = estimation_result_path() * filename * "_lightweight" * ".jld"
     save(filename, "mmsolu", mmsolu2, "estset", estset)
@@ -592,7 +592,7 @@ function save_estimation_lightweight(estset::EstimationSetup, mmsolu::Estimation
 end
 
 
-function save_estimation_lightweight(filename::String; path::String = estimation_result_path(), bestN::Integer = 1000)
+function save_estimation_lightweight(filename::String; path::String=estimation_result_path(), bestN::Integer=1000)
     res = load(path * filename * ".jld")
     estset = res["estset"]
     mmsolu = res["mmsolu"]
@@ -617,8 +617,8 @@ function estimation_name(estset::EstimationSetup, npmm::NumParMM, filename_suffi
         lgstr = ""
     end
 
-    modelnamest = modelname=="" ? "" : "_" * modelname
-    typemomst = typemom=="" ? "" : "_" * typemom
+    modelnamest = modelname == "" ? "" : "_" * modelname
+    typemomst = typemom == "" ? "" : "_" * typemom
 
     return mode.filename * modelnamest * typemomst * lgstr * filename_suffix
 end
@@ -632,7 +632,7 @@ $(TYPEDSIGNATURES)
 
 Returns the full names of the moments. Should be defined for any subtype of [`EstimationMode`](@ref).
 """
-function momentnames(mode::EstimationMode, typemom::String) 
+function momentnames(mode::EstimationMode, typemom::String)
     throw(error("a separate method has to be written for $(typeof(mode))"))
 end
 
@@ -659,21 +659,23 @@ Two-step estimation procedure.
 """
 function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; aux::AuxiliaryParameters=AuxiliaryParameters(estset), npmm::NumParMM=NumParMM(estset.mode), saving::Bool=true, saving_bestmodel::Bool=saving, filename_suffix::String="")
 
-    est_1st = estimation(estset; aux,npmm,saving, saving_bestmodel, filename_suffix = filename_suffix*"_1st")
-    boot_1st = param_bootstrap_result(estset, est_1st,auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix = filename_suffix*"_1st")
+    est_1st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_1st")
+    boot_1st = param_bootstrap_result(estset, est_1st, auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix=filename_suffix * "_1st")
 
-    est_2st = estimation(estset; aux,npmm,saving, saving_bestmodel, filename_suffix = filename_suffix*"_2st", Wmat = boot_1st.W)
-    boot_2st = param_bootstrap_result(estset, est_2st,auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix = filename_suffix*"_2st")
+    est_2st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_2st", Wmat=boot_1st.W)
+    boot_2st = param_bootstrap_result(estset, est_2st, auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix=filename_suffix * "_2st")
 
     return est_1st, boot_1st, est_2st, boot_2st
 end
 
 macro maythread(body)
-    esc(:(if $(@__MODULE__).threading_inside()
-    Threads.@threads($body)
-    else
-      $body
-    end))
+    esc(:(
+        if $(@__MODULE__).threading_inside()
+            Threads.@threads($body)
+        else
+            $body
+        end
+    ))
 end
 
 estimation_result_path() = "./saved/estimation_results/"

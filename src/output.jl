@@ -18,16 +18,16 @@ fmarg
 
 @userplot FMarg
 
-@recipe function f(h::FMarg; glob = h.args[2].npmm.onlyglo)
+@recipe function f(h::FMarg; glob=h.args[2].npmm.onlyglo)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
-        !(h.args[2] isa EstimationResult) || !(h.args[3] isa AbstractArray)
+       !(h.args[2] isa EstimationResult) || !(h.args[3] isa AbstractArray)
         error("fmarg should be given three inputs: an EstimationSetup, an EstimationResult and an AbstractArray. Got: $(typeof(h.args))")
     end
     estset, mmsolu, margobj = h.args
-    @unpack xglo, xloc, fglo, floc,npmm = mmsolu
+    @unpack xglo, xloc, fglo, floc, npmm = mmsolu
 
     labs = labels(estset)
-    layout := size(margobj,2)
+    layout := size(margobj, 2)
 
     glob ? x = xglo[1] : x = xloc[1]
     glob ? obj = fglo[1] : obj = floc[1]
@@ -36,7 +36,7 @@ fmarg
     legend := :none
     # grid := false
 
-    for k in axes(margobj,2)
+    for k in axes(margobj, 2)
         @series begin
             subplot := k
             margobj[:, k, 1], margobj[:, k, 2]
@@ -74,9 +74,9 @@ fsanity
 
 @userplot FSanity
 
-@recipe function f(h::FSanity; glob = h.args[2].npmm.onlyglo, firstN = 1000, ylimss = fill(:none,1+length(h.args[2].xglo[1])))
+@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].xglo[1])))
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
-        !(h.args[2] isa EstimationResult)
+       !(h.args[2] isa EstimationResult)
         error("fsanity should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
     end
     estset, mmsolu = h.args
@@ -87,16 +87,16 @@ fsanity
     glob ? x = xglo : x = xloc
 
     labs = labels(estset)
-    lastindex = min(firstN,length(ob))
+    lastindex = min(firstN, length(ob))
     xx = hcat([x[j] for j in 1:length(ob)]...)
-    layout := size(xx,1) + 1
+    layout := size(xx, 1) + 1
     merge!(plotattributes, fonts())
     legendfontsize := 4
 
     @series begin
         subplot := 1
         label := ""
-        title :="objective"
+        title := "objective"
         titlefont := 10
         ylims := ylimss[1]
         ob[1:lastindex]
@@ -108,7 +108,7 @@ fsanity
             label := "converged"
             color := :green
             markersize := 2.0
-            collect(1:lastindex)[conv[1:lastindex]],ob[1:lastindex][conv[1:lastindex]]
+            collect(1:lastindex)[conv[1:lastindex]], ob[1:lastindex][conv[1:lastindex]]
         end
         @series begin
             subplot := 1
@@ -116,11 +116,11 @@ fsanity
             label := "not converged"
             color := :red
             markersize := 2.0
-            collect(1:lastindex)[.!(conv[1:lastindex])],ob[1:lastindex][.!(conv[1:lastindex])]
+            collect(1:lastindex)[.!(conv[1:lastindex])], ob[1:lastindex][.!(conv[1:lastindex])]
         end
     end
 
-    for k in axes(xx,1)
+    for k in axes(xx, 1)
         subplot := k + 1
         @series begin
             label := ""
@@ -141,7 +141,7 @@ end
 
 @recipe function f(h::FGlobounds)
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
-        !(h.args[2] isa EstimationResult)
+       !(h.args[2] isa EstimationResult)
         error("fglobounds should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
     end
     estset, mmsolu = h.args
@@ -149,31 +149,31 @@ end
     @unpack xglo, npmm = mmsolu
 
     labs = labels(estset)
-    
+
     xx = hcat(xglo...)
 
     N = 10
-    percs = [1/5^(i-1) for i in 1:N]
+    percs = [1 / 5^(i - 1) for i in 1:N]
 
     legend := :none
     merge!(plotattributes, fonts())
-    layout := size(xx,1)
+    layout := size(xx, 1)
 
-    for k in axes(xx,1)
-        mins = [minimum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
-        maxs = [maximum(@view xx[k,1:floor(Int,npmm.Nglo*percs[i])]) for i in 1:N]
+    for k in axes(xx, 1)
+        mins = [minimum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
+        maxs = [maximum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
         @series begin
             subplot := k
             title := labs[k]
-            color := :blue 
+            color := :blue
             xaxis := :log10
-            percs,mins
+            percs, mins
         end
         @series begin
             subplot := k
-            color := :blue 
+            color := :blue
             xaxis := :log10
-            percs,maxs
+            percs, maxs
         end
     end
 end
@@ -191,13 +191,13 @@ Creates DataFrame with parameter estimates.
 # Optional arguments
 - glob: Logical, true if only global stage was performed.
 """
-function tableest_inner(estset::EstimationSetup,mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo)
-    @unpack xglo, xloc,npmm = mmsolu
+function tableest_inner(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo)
+    @unpack xglo, xloc, npmm = mmsolu
 
     labs = labels(estset)
     glob ? x = xglo[1] : x = xloc[1]
 
-    return DataFrame(:Variable=>labs, Symbol("Point estimate")=>round.(x, digits=3))
+    return DataFrame(:Variable => labs, Symbol("Point estimate") => round.(x, digits=3))
 end
 
 """
@@ -213,11 +213,11 @@ Creates DataFrame with parameter estimates and optionally saves it.
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
 
-    df = tableest_inner(estset,mmsolu; glob)
+    df = tableest_inner(estset, mmsolu; glob)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest.csv", df)
 
@@ -241,16 +241,16 @@ Creates DataFrame with parameter estimates and optionally saves it, bootstrap ca
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
-    @unpack xs,sd_asymp = boot
+    @unpack xs, sd_asymp = boot
 
-    df = tableest_inner(estset,mmsolu; glob)
+    df = tableest_inner(estset, mmsolu; glob)
 
-    bs_sds = [sqrt(var(xs[i,:,:])) for i in axes(xs,1)]
-    ratios = [mean(var(xs[i,:,:]; dims=1))/var(xs[i,:,:]) for i in axes(xs,1)]
-    bs_ci = [round.(quantile(xs[i,:,:][:], [cilev/2, 1.0-cilev/2]), digits=dgt) for i in axes(xs, 1)]
+    bs_sds = [sqrt(var(xs[i, :, :])) for i in axes(xs, 1)]
+    ratios = [mean(var(xs[i, :, :]; dims=1)) / var(xs[i, :, :]) for i in axes(xs, 1)]
+    bs_ci = [round.(quantile(xs[i, :, :][:], [cilev / 2, 1.0 - cilev / 2]), digits=dgt) for i in axes(xs, 1)]
 
     df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=dgt)
     df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=dgt)
@@ -281,7 +281,7 @@ function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult)
 
     df = momentnames(mode, typemom)
 
-    df[:, :("Sample values")] = round.(momsdata[:,1], digits=3)
+    df[:, :("Sample values")] = round.(momsdata[:, 1], digits=3)
     df[:, :("Model values")] = round.(momloc[1], digits=3)
 
     return df
@@ -353,11 +353,11 @@ fmoms
 
 @recipe function f(h::FMoms)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
-        !(h.args[2] isa EstimationResult) ||
-        !(h.args[3] isa Integer)
+       !(h.args[2] isa EstimationResult) ||
+       !(h.args[3] isa Integer)
         error("fmoms should be given three inputs: an EstimationSetup, an EstimationResult and an Integer. Got: $(typeof(h.args))")
     end
-    estset,mmsolu,ff = h.args
+    estset, mmsolu, ff = h.args
     @unpack momloc, npmm = mmsolu
 
     df = tablemoms_inner(estset, mmsolu)
@@ -366,10 +366,10 @@ fmoms
         insertcols!(df, 1, :empty => "Moments")
     end
 
-    titles = unique(df[:,1])
+    titles = unique(df[:, 1])
     xlb = names(df)[2]
 
-    legend :=:topleft
+    legend := :topleft
     size := (650, 540)
     foreground_color_legend := nothing
     xlabel := xlb
@@ -391,22 +391,22 @@ fmoms
     else
         lb = ["", ""]
     end
-        for k in 1:2
-            @series begin
-                
-                label := lb[k]
-                linecolor := lc[k]
-                linestyle := ls[k]
-                linewidth := 1.5
-                markercolor:= lc[k]
-                markersize := msz[k]
-                markershape := msh[k]
-                markeralpha := 1.0
-                markerstrokecolor := lc[k]
-                markerstrokewidth := 2
-                df[df[:,1] .== titles[ff], 2], df[df[:,1] .== titles[ff], 3:4][:,k]
-            end
+    for k in 1:2
+        @series begin
+
+            label := lb[k]
+            linecolor := lc[k]
+            linestyle := ls[k]
+            linewidth := 1.5
+            markercolor := lc[k]
+            markersize := msz[k]
+            markershape := msh[k]
+            markeralpha := 1.0
+            markerstrokecolor := lc[k]
+            markerstrokewidth := 2
+            df[df[:, 1].==titles[ff], 2], df[df[:, 1].==titles[ff], 3:4][:, k]
         end
+    end
 end
 
 """
@@ -429,23 +429,23 @@ fbootstrap
 
 @userplot FBootstrap
 
-@recipe function f(h::FBootstrap; ci=true, cilev=0.05,trim = 0.01)
+@recipe function f(h::FBootstrap; ci=true, cilev=0.05, trim=0.01)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
-        !(h.args[2] isa EstimationResult) ||
-        !(h.args[3] isa BootstrapResult)
+       !(h.args[2] isa EstimationResult) ||
+       !(h.args[3] isa BootstrapResult)
         error("fmoms should be given three inputs: an EstimationSetup, an EstimationResult and a BootstrapResult. Got: $(typeof(h.args))")
     end
-    estset,mmsolu,boot = h.args
-    @unpack npmm,xloc = mmsolu
+    estset, mmsolu, boot = h.args
+    @unpack npmm, xloc = mmsolu
     @unpack xs = boot
 
     labs = labels(estset)
-    layout := size(xs,1)
+    layout := size(xs, 1)
     merge!(plotattributes, fonts())
 
     for k in axes(xs, 1)
-        xdist = sort(xs[k,:,:][:])
-        toskip = floor(Int,length(xdist)*trim)
+        xdist = sort(xs[k, :, :][:])
+        toskip = floor(Int, length(xdist) * trim)
         xdist_trimmed = xdist[(1+toskip):(end-toskip)]
 
         subplot := k
@@ -466,13 +466,13 @@ fbootstrap
             style := :dash
             [xopt]
         end
-        if ci==true
+        if ci == true
             @series begin
                 seriestype := :vline
                 linecolor := "red"
                 width := 1.5
                 style := :dashdot
-                quantile(xdist, [cilev/2, 1.0 - cilev/2], sorted=true)
+                quantile(xdist, [cilev / 2, 1.0 - cilev / 2], sorted=true)
             end
         end
     end
@@ -484,14 +484,14 @@ $(TYPEDSIGNATURES)
 Some plot attributes often used.
 """
 function fonts()
-    return Dict( 
-    :xrotation=>45,
-    :titlefont=>8,
-    :titlelocation=>:left,
-    :xguidefont=>6,
-    :yguidefont=>6,
-    :tickfont=>6,
-    :legendfont=>6
+    return Dict(
+        :xrotation => 45,
+        :titlefont => 8,
+        :titlelocation => :left,
+        :xguidefont => 6,
+        :yguidefont => 6,
+        :tickfont => 6,
+        :legendfont => 6
     )
 end
 
@@ -500,13 +500,13 @@ $(TYPEDSIGNATURES)
 
 Produce all figures and tables
 """
-function alloutputs(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool = true, filename_suffix::String="")
+function alloutputs(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool=true, filename_suffix::String="")
     marg = marginal_fobj(estset, mmsolu)
-    fmarg(estset, mmsolu,marg; saving, filename_suffix)
+    fmarg(estset, mmsolu, marg; saving, filename_suffix)
     fsanity(estset, mmsolu; saving, filename_suffix)
-    tableest(estset, mmsolu, boot; saving, filename_suffix) 
-    fmoms(estset, mmsolu; saving, filename_suffix) 
-    tablemoms(estset, mmsolu, boot; saving, filename_suffix) 
+    tableest(estset, mmsolu, boot; saving, filename_suffix)
+    fmoms(estset, mmsolu; saving, filename_suffix)
+    tablemoms(estset, mmsolu, boot; saving, filename_suffix)
     fbootstrap(estset, mmsolu, boot; saving, filename_suffix)
     return nothing
 end
