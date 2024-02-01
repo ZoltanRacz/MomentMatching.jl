@@ -1,10 +1,10 @@
-using MomentMatching, Test, Plots
+using MomentMatching, Test, Plots, OptimizationOptimJL
 
 include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
-npest = NumParMM(setup; Nglo=100, Nloc=10)
+npest = NumParMM(setup; Nglo=100, Nloc=10, local_opt_settings = (algorithm = NelderMead(), maxtime = 30.0))
 
 Tdis = 20
 Ndata = 500
