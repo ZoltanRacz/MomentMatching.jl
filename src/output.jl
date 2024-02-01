@@ -241,7 +241,7 @@ Creates DataFrame with parameter estimates and optionally saves it, bootstrap ca
 - glob: Logical, true if only global stage was performed.
 - saving: Logical, true if output has to be saved.
 """
-function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
+function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
     @unpack xs,sd_asymp = boot
@@ -250,12 +250,12 @@ function tableest(estset::EstimationSetup,mmsolu::EstimationResult, boot::Bootst
 
     bs_sds = [sqrt(var(xs[i,:,:])) for i in axes(xs,1)]
     ratios = [mean(var(xs[i,:,:]; dims=1))/var(xs[i,:,:]) for i in axes(xs,1)]
-    bs_ci = [quantile(xs[i,:,:][:], [cilev/2, 1.0 - cilev/2]) for i in axes(xs, 1)]
+    bs_ci = [round.(quantile(xs[i,:,:][:], [cilev/2, 1.0-cilev/2]), digits=dgt) for i in axes(xs, 1)]
 
-    df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=3)
-    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=3)
-    df[:, :("Bootstrapped $(1-cilev)% CI")] = round.(bs_ci, digits=3)
-    df[:, :("Seed share of variance")] = round.(ratios, digits=3)
+    df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=dgt)
+    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=dgt)
+    df[:, "Bootstrapped $(100*(1-cilev))% CI"] = bs_ci
+    df[:, :("Seed share of variance")] = round.(ratios, digits=dgt)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest_boot.csv", df)
 
@@ -325,15 +325,15 @@ Compares model-generated moments with data in a table and optionally saves outpu
 # Optional arguments
 - saving: Logical, true if output has to be saved.
 """
-function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; saving::Bool=false, filename_suffix::String="")
+function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; dgt::Int64=3, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
     @unpack moms, W = boot
 
     df = tablemoms_inner(estset, mmsolu)
 
-    df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=3)
-    df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=3)
+    df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=dgt)
+    df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=dgt)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tablemoms_boot.csv", df)
 
