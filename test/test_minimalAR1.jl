@@ -1,10 +1,13 @@
-using MomentMatching, Test, Plots
+# useful lines for testing manually, while developing. Check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
+#using TestEnv
+#TestEnv.activate()
+using MomentMatching, Test, Plots, OptimizationOptimJL
 
 include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
-npest = NumParMM(setup; Nglo=100, Nloc=10, it=3000)
+npest = NumParMM(setup; Nglo=100, Nloc=10, local_opt_settings = (algorithm = NelderMead(), maxtime = 30.0))
 
 Tdis = 20
 Ndata = 500

@@ -153,7 +153,7 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
                 sample_i = CartesianIndices((Nseeds, Nsamplesim))[fullind][2]
                 x = [[1.0]]
 
-                opt_loc!([1.0], x, [Vector{Float64}(undef, momleng)], [Vector{Float64}(undef, momleng)], [false], npmm.local_alg, estset, npmm.it, aux, presh_repeat[seed_i], preal, mms[sample_i], bestx, 1, false)
+                opt_loc!([1.0], x, [Vector{Float64}(undef, momleng)], [Vector{Float64}(undef, momleng)], [false], npmm.local_opt_settings, estset, aux, presh_repeat[seed_i], preal, mms[sample_i], bestx, 1, false)
 
                 x_ch[n] = x[1]
                 ProgressMeter.next!(prog)

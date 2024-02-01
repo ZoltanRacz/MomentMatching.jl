@@ -98,8 +98,6 @@ end
 
 PreallocatedContainers(estset::EstimationSetup, aux::AuxiliaryParameters) = PreallocatedContainers(estset.mode, estset.modelname, estset.typemom, aux)
 
-OptimizationAlgorithm = Union{Optim.AbstractOptimizer,Symbol}
-
 """
 $(TYPEDEF)
 # Description
@@ -112,8 +110,6 @@ $(FIELDS)
     Nglo::T
     "# of best points to evaluate for local stage of estimation (or to save if only global stage, see [`matchmom`](@ref))"
     Nloc::T
-    "# iterations Nelder-Mead algorithm in local stage"
-    it::T
     "Lower bound for parameters in global stage"
     full_lb_global::Vector{S}
     "Upper bound for parameters in global stage"
@@ -122,8 +118,8 @@ $(FIELDS)
     onlyglo::Bool
     "Logical, true if only local optimization is to be performed"
     onlyloc::Bool
-    "Optimization algorithm used in local stage"
-    local_alg::OptimizationAlgorithm
+    "Settings for optimization used in local stage"
+    local_opt_settings::Dict{Symbol,Any}
 end
 
 """
@@ -131,9 +127,10 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
-function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, it::T=10000, onlyglo::Bool=false, onlyloc::Bool=false) where {T<:Integer}
+function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
+    typeof(local_opt_settings) <: NamedTuple && (local_opt_settings = Dict(pairs(local_opt_settings)))
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
-    return NumParMM(Nglo, Nloc, it, full_lb_global, full_ub_global, onlyglo, onlyloc, NelderMead())
+    return NumParMM(Nglo, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
 end
 
 """
@@ -399,7 +396,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::Auxi
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk[n]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_alg, estset, npmm.it, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
                 objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal, errorcatching)
                 ProgressMeter.next!(prog)
             end
@@ -437,42 +434,14 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Optim.AbstractOptimizer, estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
-    sol = Optim.optimize(y -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal, errorcatching), xcand, local_alg, Optim.Options(iterations=iter, store_trace=true, g_tol=10^-12))
-    obj[n] = Optim.minimum(sol)
-    xsol[n] = Optim.minimizer(sol)
-    conv[n] = Optim.converged(sol)
-    return nothing
-end
-
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_alg::Symbol, estset::EstimationSetup, iter::Integer, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
-
-    opt = Opt(local_alg, length(xcand)) # or LN_COBYLA
-    function funf(x::Vector, grad::Vector)
-        if length(grad) > 0
-        end
-        return objf!(mom[n], momnorm[n], estset, x, pmm, aux, presh, preal, errorcatching)
-    end
-
-    opt.min_objective = funf
-
-    opt.lower_bounds = pmm.lb_hard
-    opt.upper_bounds = pmm.ub_hard
-
-    opt.maxeval = iter
-
-    # ? opt.initial_step = [0.01,0.002,0.1,0.01,0.001,0.01,0.005,0.05]
-
-    (optf, optx, ret) = NLopt.optimize(opt, xcand)
-
-    obj[n] = optf
-    xsol[n] = optx
-    if ret == :SUCCESS || ret == :FTOL_REACHED || ret == :XTOL_REACHED
-        conv[n] = true
-    else
-        conv[n] = false
-    end
-
+function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+    problem = OptimizationProblem((y,unused) -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal, errorcatching), xcand)
+    settings = deepcopy(local_opt_settings)
+    algorithm = pop!(settings,:algorithm)
+    solution = solve(problem, algorithm; settings...)
+    obj[n] = solution.objective
+    xsol[n] = solution.u
+    conv[n] = SciMLBase.successful_retcode(solution.retcode)
     return nothing
 end
 
