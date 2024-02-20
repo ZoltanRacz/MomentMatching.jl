@@ -15,10 +15,10 @@ Computes objective function at points around the minimizer.
 # Optional arguments
 - gridx: Grid of points around of optimum to evaluate objective function at.
 """
-function marginal_fobj(estset::EstimationSetup, mmsolu::EstimationResult; gridx=defaultxgrid(mmsolu.xloc[1]))
+function marginal_fobj(estset::EstimationSetup, mmsolu::EstimationResult; which_point::Integer = 1, gridx=defaultxgrid(mmsolu.xloc[which_point]))
     @unpack floc, xloc, momloc, pmm, aux, presh = mmsolu
-    ob = floc[1]
-    x = xloc[1]
+    ob = floc[which_point]
+    x = xloc[which_point]
 
     preal = PreallocatedContainers(estset, aux)
     if typeof(presh) == EmptyPredrawnShocks
@@ -58,8 +58,8 @@ Computes objective function at points around the minimizer.
 - num_marg: Number of points around optimum to evaluate.
 - scale_margs: Scale parameters for constructing grid of points to be evaluated.
 """
-function marginal_fobj(estset::EstimationSetup, mmsolu::EstimationResult, num_marg::Integer, scale_margs::AbstractVector)
-    return marginal_fobj(estset, mmsolu; gridx=defaultxgrid(mmsolu.xloc[1], num_marg=num_marg, scale_margs=scale_margs))
+function marginal_fobj(estset::EstimationSetup, mmsolu::EstimationResult, num_marg::Integer, scale_margs::AbstractVector; which_point::Integer = 1)
+    return marginal_fobj(estset, mmsolu; which_point, gridx=defaultxgrid(mmsolu.xloc[which_point], num_marg=num_marg, scale_margs=scale_margs))
 end
 
 """

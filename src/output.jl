@@ -18,7 +18,7 @@ fmarg
 
 @userplot FMarg
 
-@recipe function f(h::FMarg; glob=h.args[2].npmm.onlyglo)
+@recipe function f(h::FMarg; glob=h.args[2].npmm.onlyglo, which_point = 1)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult) || !(h.args[3] isa AbstractArray)
         error("fmarg should be given three inputs: an EstimationSetup, an EstimationResult and an AbstractArray. Got: $(typeof(h.args))")
@@ -29,8 +29,8 @@ fmarg
     labs = labels(estset)
     layout := size(margobj, 2)
 
-    glob ? x = xglo[1] : x = xloc[1]
-    glob ? obj = fglo[1] : obj = floc[1]
+    glob ? x = xglo[which_point] : x = xloc[which_point]
+    glob ? obj = fglo[which_point] : obj = floc[which_point]
 
     merge!(plotattributes, fonts())
     legend := :none
@@ -273,7 +273,7 @@ Compares model-generated moments with data in a table.
 - estset: Instance of EstimationSetup. See separate documentation [`EstimationSetup`](@ref).
 - mmsolu: Instance of EstimationResult. See separate documentation [`EstimationResult`](@ref).
 """
-function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult)
+function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult, which_point::Integer)
     @unpack mode, typemom = estset
     @unpack momloc, npmm = mmsolu
 
@@ -281,8 +281,8 @@ function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult)
 
     df = momentnames(mode, typemom)
 
-    df[:, :("Sample values")] = round.(momsdata[:, 1], digits=3)
-    df[:, :("Model values")] = round.(momloc[1], digits=3)
+    df[:, :("Sample values")] = round.(momsdata[:, which_point], digits=3)
+    df[:, :("Model values")] = round.(momloc[which_point], digits=3)
 
     return df
 end
@@ -303,7 +303,7 @@ function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bo
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
 
-    df = tablemoms_inner(estset, mmsolu)
+    df = tablemoms_inner(estset, mmsolu, 1)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tablemoms.csv", df)
 
@@ -330,7 +330,7 @@ function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::Boot
     @unpack npmm = mmsolu
     @unpack moms, W = boot
 
-    df = tablemoms_inner(estset, mmsolu)
+    df = tablemoms_inner(estset, mmsolu, 1)
 
     df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=dgt)
     df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=dgt)
@@ -351,7 +351,7 @@ fmoms
 
 @userplot FMoms
 
-@recipe function f(h::FMoms)
+@recipe function f(h::FMoms; which_point = 1)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult) ||
        !(h.args[3] isa Integer)
@@ -360,7 +360,7 @@ fmoms
     estset, mmsolu, ff = h.args
     @unpack momloc, npmm = mmsolu
 
-    df = tablemoms_inner(estset, mmsolu)
+    df = tablemoms_inner(estset, mmsolu, which_point)
 
     if ncol(df) == 3
         insertcols!(df, 1, :empty => "Moments")
@@ -407,6 +407,11 @@ fmoms
             df[df[:, 1].==titles[ff], 2], df[df[:, 1].==titles[ff], 3:4][:, k]
         end
     end
+end
+
+
+function fmoms(setup::EstimationSetup, res::EstimationResult; which_point = 1)
+    return fmoms(setup, res, 1; which_point)
 end
 
 """
