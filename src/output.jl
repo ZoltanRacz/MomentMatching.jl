@@ -410,8 +410,21 @@ fmoms
 end
 
 
-function fmoms(setup::EstimationSetup, res::EstimationResult; which_point = 1)
-    return fmoms(setup, res, 1; which_point)
+function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point = 1, display_all = true)
+
+    df = tablemoms_inner(estset, mmsolu, which_point)
+    if ncol(df) == 3
+        insertcols!(df, 1, :empty => "Moments")
+    end
+    titles = unique(df[:, 1])
+
+    if display_all
+        for i in eachindex(titles)
+            display(fmoms(estset, mmsolu, i; which_point))
+        end
+    end
+
+    return [fmoms(estset, mmsolu, i; which_point) for i in eachindex(titles)]
 end
 
 """

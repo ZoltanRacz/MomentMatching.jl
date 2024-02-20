@@ -39,8 +39,16 @@ boot_1st = param_bootstrap_result(setup, est_1st, auxmomsim, Nseed, Nsample, Nda
 marg = marginal_fobj(setup, est_1st, 17, fill(0.1, 3))
 fmarg(setup, est_1st, marg)
 
+marg = marginal_fobj(setup, est_1st, 17, fill(0.1, 3), which_point=2)
+fmarg(setup, est_1st, marg, which_point=2)
+
 fsanity(setup, est_1st)
 
 fmoms(setup, est_1st, 1)
+fmoms(setup, est_1st, 1, which_point = 2)
+
+fmoms(setup, est_1st)
+fmoms(setup, est_1st, display_all = false)
+fmoms(setup, est_1st, which_point = 2)
 
 fbootstrap(setup, est_1st, boot_1st)
