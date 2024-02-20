@@ -1,4 +1,4 @@
-# useful lines for testing manually, while developing. Check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
+# useful lines for testing manually, while developing. Install TestEnv in your main environment. When running the first time, activate and instantiate the test environment before restarting Julia and using TestEnv. For more info check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
 #using TestEnv
 #TestEnv.activate()
 using MomentMatching, Test, Plots, OptimizationOptimJL
@@ -39,8 +39,16 @@ boot_1st = param_bootstrap_result(setup, est_1st, auxmomsim, Nseed, Nsample, Nda
 marg = marginal_fobj(setup, est_1st, 17, fill(0.1, 3))
 fmarg(setup, est_1st, marg)
 
+marg = marginal_fobj(setup, est_1st, 17, fill(0.1, 3), which_point=2)
+fmarg(setup, est_1st, marg, which_point=2)
+
 fsanity(setup, est_1st)
 
 fmoms(setup, est_1st, 1)
+fmoms(setup, est_1st, 1, which_point = 2)
+
+fmoms(setup, est_1st)
+fmoms(setup, est_1st, display_all = false)
+fmoms(setup, est_1st, which_point = 2)
 
 fbootstrap(setup, est_1st, boot_1st)
