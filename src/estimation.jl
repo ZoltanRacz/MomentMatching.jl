@@ -649,6 +649,5 @@ macro maythread(body)
 end
 
 estimation_result_path() = "./saved/estimation_results/"
-estimation_output_path() = "./saved/estimation_output/"
 
 threading_inside() = false

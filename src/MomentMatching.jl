@@ -44,13 +44,13 @@ export estimation, # main functions
        BootstrapResult,
        EmptyPredrawnShocks,
        estimation_name,
-       estimation_output_path,
        estimation_result_path,
        EstimationResult,
        EstimationSetup,
        @maythread,
        NumParMM,
        ParMM,
+       save_estimation_lightweight,
        threading_inside,
 
        # from inference.jl:
