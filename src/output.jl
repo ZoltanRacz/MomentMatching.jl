@@ -139,7 +139,7 @@ end
 
 @userplot FGlobounds
 
-@recipe function f(h::FGlobounds)
+@recipe function f(h::FGlobounds; N = 20)
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult)
         error("fglobounds should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
@@ -152,8 +152,8 @@ end
 
     xx = hcat(xglo...)
 
-    N = 10
-    percs = [1 / 5^(i - 1) for i in 1:N]
+    m = npmm.Nglo^(1/N)
+    percs = [1 / m^(i - 1) for i in 1:N]
 
     legend := :none
     merge!(plotattributes, fonts())
