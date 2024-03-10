@@ -17,6 +17,8 @@ using Optim # For defining default settings for local optimization. Should think
 using Optimization # For local phase of estimation
 using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
+using Distributed # For multiprocessing
+using ClusterManagers # For multiprocessing on computer clusters
 
 # exported types and functions
 export estimation, # main functions

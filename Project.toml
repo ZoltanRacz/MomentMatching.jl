@@ -5,6 +5,7 @@ version = "0.2.4"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+ClusterManagers = "34f1f09b-3a8b-5176-ab39-66d58a4d544e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
