@@ -454,12 +454,12 @@ function multithread_global!(chunk_proc)
         Threads.@spawn begin
             # preallocate once per chunk
             objg_ch = Vector{Float64}(undef, length(chunk))
-            momg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+            momg_ch = Array{Float64}(undef, length(pmm.momdat),length(chunk))
             momnormg_ch = Vector{Float64}(undef, length(pmm.momdat))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk) # do stuff for all index in chunk
                 fullind = chunk_proc[chunk[n]]
-                objg_ch[n] = objf!(momg_ch[n], momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
+                objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
                 #ProgressMeter.next!(prog)
             end
             # and then returns the result
@@ -471,7 +471,7 @@ function multithread_global!(chunk_proc)
 
     for (i, chunk) in enumerate(chunks_th) # organize results in final form
         objg[chunk_proc[chunk]] = outstates[i][1]
-        momg[chunk_proc[chunk]] = outstates[i][2]
+        momg[:,chunk_proc[chunk]] = outstates[i][2]
     end
 end
 
