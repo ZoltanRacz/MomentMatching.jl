@@ -225,7 +225,7 @@ Can be customized if non-default estimation cases have to be performed. Accepts 
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), cs::ComputationSettings = ComputationSettings(), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
     presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer=1, filename_suffix::String="", errorcatching::Bool=false, vararg...)
 
-    @assert(!threading_inside())
+    @assert(!threading_inside() || cs.num_tasks==1)
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
@@ -341,15 +341,19 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 
     onlyloc && onlyglo && throw(error("should do either local or global or both"))
 
-    objg = fill(-1.0, Nglo)
-    momg = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:Nglo]
-    s = SobolSeq(lb_global, ub_global)
-    xg = [Sobol.next!(s) for i in 1:Nglo]
     if !onlyloc
         # global stage: evaluates the objective at Sobol sequence points
+        s = SobolSeq(lb_global, ub_global)
+        xg = [Sobol.next!(s) for i in 1:Nglo]
 
         if cs.num_procs==1
-            multithread_global!(1:Nglo)
+            objg = fill(-1.0, Nglo)
+            momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
+            if cs.num_tasks==1
+                singlethread_global!(1:Nglo)
+            else
+                multithread_global!(1:Nglo)
+            end            
         else
             addprocs(cs)
 
@@ -357,11 +361,19 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
                 include("init.jl")
             end
 
-            for i in workers()
-                multithread_global!(collect(Iterators.partition(1:Nglo, cs.num_nodes))[i])
+            objg = SharedArray(fill(-1.0, Nglo))
+            momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
+
+            for i in eachindex(workers())
+                if cs.num_tasks==1
+                    singlethread_global!(getchunk(1:Nglo,i; n = cs.num_nodes))
+                else
+                    multithread_global!(getchunk(1:Nglo,i; n = cs.num_nodes))
+                end
             end
 
             rmprocs(workers())
+            # convert objg and momg to normal array here
         end
 
         if onlyglo
@@ -426,21 +438,28 @@ function addprocs(cs::ComputationSettings)
     end
 end
 
-function multithread_global!(range_task)
-    chunks = Iterators.partition(range_task, cs.num_tasks) 
+function singlethread_global!(chunk_proc)
+    momnormg = Vector{Float64}(undef, length(pmm.momdat))
+    for i in chunk_proc
+        objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
+    end
+end
+
+function multithread_global!(chunk_proc)
+    chunks_th = chunks(chunk_proc; n = cs.num_tasks)
     #prog = Progress(Nglo; desc="Performing global stage...")
-    tasks = map(chunks) do chunk
+    tasks = map(chunks_th) do chunk
         # Each chunk gets its own spawned task that does its own local, sequential work. every task is assigned to one thread.
 
         Threads.@spawn begin
             # preallocate once per chunk
             objg_ch = Vector{Float64}(undef, length(chunk))
             momg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
-            momnormg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+            momnormg_ch = Vector{Float64}(undef, length(pmm.momdat))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk) # do stuff for all index in chunk
-                fullind = chunk[n]
-                objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
+                fullind = chunk_proc[chunk[n]]
+                objg_ch[n] = objf!(momg_ch[n], momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
                 #ProgressMeter.next!(prog)
             end
             # and then returns the result
@@ -450,9 +469,9 @@ function multithread_global!(range_task)
     outstates = fetch.(tasks) # collect results from tasks
     #finish!(prog)
 
-    for (i, chunk) in enumerate(chunks) # organize results in final form
-        objg[chunk] = outstates[i][1]
-        momg[chunk] = outstates[i][2]
+    for (i, chunk) in enumerate(chunks_th) # organize results in final form
+        objg[chunk_proc[chunk]] = outstates[i][1]
+        momg[chunk_proc[chunk]] = outstates[i][2]
     end
 end
 
