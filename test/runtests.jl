@@ -1,6 +1,10 @@
 using MomentMatching
 using Test
 
-@testset "MomentMatching.jl" begin
-    include("test_minimalAR1.jl")
+@testset "Unit test of global estimation" begin
+    include("unittest_estimation.jl")
+end
+
+@testset "Integration test of minimal example" begin
+    include("integrationtest_minimal.jl")
 end
