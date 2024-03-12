@@ -427,14 +427,14 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         objl[sortperm(objl)], xl[sortperm(objl)], moml[sortperm(objl)], conv[sortperm(objl)])
 end
 
-function addprocs(cs::ComputationSettings)
+function Distributed.addprocs(cs::ComputationSettings)
     exefl = ["--project", "--threads=$(cs.num_threads)"]
     if cs.location == "local"
         return addprocs(cs.num_procs, exeflags=exefl)
     elseif cs.location == "slurm"
         return addprocs(SlurmManager(cs.num_procs), exeflags=exefl)
     else
-        @throw(error("cs.location has to be either 'local' or 'slurm'."))
+        throw(error("cs.location has to be either 'local' or 'slurm'."))
     end
 end
 
@@ -471,7 +471,7 @@ function multithread_global!(chunk_proc)
 
     for (i, chunk) in enumerate(chunks_th) # organize results in final form
         objg[chunk_proc[chunk]] = outstates[i][1]
-        view(momg,:,chunk_proc[chunk]) = view(outstates[i][2],:,chunk)
+        momg[:,chunk_proc[chunk]] = view(outstates[i][2],:,chunk)
     end
 end
 
