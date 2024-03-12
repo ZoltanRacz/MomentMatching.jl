@@ -207,7 +207,7 @@ $(FIELDS)
 @with_kw struct ComputationSettings{T<:Integer}
     "where computation is performed. 'local' and 'slurm' are supported presently"
     location::String = "local"    
-    "Number of processes. Giving 1 avoids multiprocessing. On a cluster give number of nodes (Should double check this)."
+    "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On a cluster give number of nodes (Should double check this)."
     num_procs::T = 1
     "Number of tasks per process. Giving somewhat more than the number of actual ( virtual or physical ?? ) threads is probably a good idea.  "
     num_tasks::T = Threads.nthreads()*2
@@ -349,10 +349,11 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         if cs.num_procs==1
             objg = fill(-1.0, Nglo)
             momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
+            chunk_proc = 1:1:Nglo
             if cs.num_tasks==1
-                singlethread_global!(1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, errorcatching)
+                singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
             else
-                multithread_global!(cs, 1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, errorcatching)
+                multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
             end            
         else
             addprocs(cs)
@@ -365,10 +366,11 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
 
             for i in eachindex(workers())
+                chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
                 if cs.num_tasks==1
-                    singlethread_global!(getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, errorcatching)
+                    singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
                 else
-                    multithread_global!(cs, getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, errorcatching)
+                    multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
                 end
             end
 
@@ -438,7 +440,7 @@ function Distributed.addprocs(cs::ComputationSettings)
     end
 end
 
-function singlethread_global!(chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool)
+function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_proc::StepRange)
     momnormg = Vector{Float64}(undef, length(pmm.momdat))
     preal = PreallocatedContainers(estset, aux)
     for i in chunk_proc
@@ -446,7 +448,7 @@ function singlethread_global!(chunk_proc::StepRange, objg::AbstractVector, momg:
     end
 end
 
-function multithread_global!(cs::ComputationSettings, chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool)
+function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, cs::ComputationSettings, chunk_proc::StepRange)
     chunks_th = chunks(chunk_proc; n = cs.num_tasks)
     #prog = Progress(Nglo; desc="Performing global stage...")
     tasks = map(chunks_th) do chunk
