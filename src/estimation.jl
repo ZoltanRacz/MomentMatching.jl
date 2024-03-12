@@ -471,7 +471,7 @@ function multithread_global!(chunk_proc)
 
     for (i, chunk) in enumerate(chunks_th) # organize results in final form
         objg[chunk_proc[chunk]] = outstates[i][1]
-        momg[:,chunk_proc[chunk]] = outstates[i][2]
+        view(momg,:,chunk_proc[chunk]) = view(outstates[i][2],:,chunk)
     end
 end
 
