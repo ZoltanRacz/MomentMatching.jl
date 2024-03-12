@@ -19,7 +19,8 @@ using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
 using Distributed # For multiprocessing
 using ClusterManagers # For multiprocessing on computer clusters
-using ChunkSplitters
+using ChunkSplitters # For easy split of work in chunks
+using SharedArrays # For using arrays defined in all processes
 
 # exported types and functions
 export estimation, # main functions
