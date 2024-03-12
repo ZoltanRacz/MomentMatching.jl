@@ -350,9 +350,9 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             objg = fill(-1.0, Nglo)
             momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
             if cs.num_tasks==1
-                singlethread_global!(1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, preal, errorcatching)
+                singlethread_global!(1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, errorcatching)
             else
-                multithread_global!(cs, 1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, preal, errorcatching)
+                multithread_global!(cs, 1:1:Nglo, objg, momg, estset, xg, pmm, aux, presh, errorcatching)
             end            
         else
             addprocs(cs)
@@ -366,9 +366,9 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 
             for i in eachindex(workers())
                 if cs.num_tasks==1
-                    singlethread_global!(getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, preal, errorcatching)
+                    singlethread_global!(getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, errorcatching)
                 else
-                    multithread_global!(cs, getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, preal, errorcatching)
+                    multithread_global!(cs, getchunk(1:Nglo,i; n = cs.num_procs), objg, momg, estset, xg, pmm, aux, presh, errorcatching)
                 end
             end
 
@@ -438,14 +438,15 @@ function Distributed.addprocs(cs::ComputationSettings)
     end
 end
 
-function singlethread_global!(chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, errorcatching::Bool)
+function singlethread_global!(chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool)
     momnormg = Vector{Float64}(undef, length(pmm.momdat))
+    preal = PreallocatedContainers(estset, aux)
     for i in chunk_proc
         objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
     end
 end
 
-function multithread_global!(cs::ComputationSettings, chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, errorcatching::Bool)
+function multithread_global!(cs::ComputationSettings, chunk_proc::StepRange, objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool)
     chunks_th = chunks(chunk_proc; n = cs.num_tasks)
     #prog = Progress(Nglo; desc="Performing global stage...")
     tasks = map(chunks_th) do chunk
