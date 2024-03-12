@@ -46,6 +46,7 @@ export estimation, # main functions
        # from estimation.jl:
        # other objects which must be directly available for the user
        BootstrapResult,
+       ComputationSettings,
        EmptyPredrawnShocks,
        estimation_name,
        estimation_result_path,

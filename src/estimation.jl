@@ -358,10 +358,6 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         else
             addprocs(cs)
 
-            @everywhere begin 
-                include("init.jl")
-            end
-
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
 
@@ -377,6 +373,8 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             rmprocs(workers())
             # convert objg and momg to normal array here
         end
+
+        momg = [momg[:,i] for i in axes(momg,2)]
 
         if onlyglo
 
@@ -430,7 +428,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 end
 
 function Distributed.addprocs(cs::ComputationSettings)
-    exefl = ["--project", "--threads=$(cs.num_threads)"]
+    exefl = ["--project", "--threads=$(cs.num_tasks)"]
     if cs.location == "local"
         return addprocs(cs.num_procs, exeflags=exefl)
     elseif cs.location == "slurm"
@@ -474,7 +472,7 @@ function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset:
 
     for (i, chunk) in enumerate(chunks_th) # organize results in final form
         objg[chunk_proc[chunk]] = outstates[i][1]
-        momg[:,chunk_proc[chunk]] = view(outstates[i][2],:,chunk)
+        momg[:,chunk_proc[chunk]] = outstates[i][2]
     end
 end
 
