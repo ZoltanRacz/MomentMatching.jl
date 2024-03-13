@@ -357,6 +357,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end            
         else
             addprocs(cs)
+            loadprocs(estset.mode)
 
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
@@ -404,10 +405,6 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         multithread_local!(1:Nloc)
     else
         addprocs(cs)
-
-        @everywhere begin 
-            include("init.jl")
-        end
 
         for i in workers()
             multithread_local!(collect(Iterators.partition(1:Nloc, cs.num_procs))[i])
