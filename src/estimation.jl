@@ -357,7 +357,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end            
         else
             addprocs(cs)
-            loadprocs(estset.mode)
+            #loadprocs(estset.mode)
 
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
@@ -390,7 +390,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             # res = fetch(f)
             # println(res)
 
-            @distributed for i in eachindex(workers())
+            @sync @distributed for i in eachindex(workers())
                 chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
                 if cs.num_tasks==1
                     singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
