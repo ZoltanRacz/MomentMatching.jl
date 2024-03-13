@@ -357,7 +357,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end            
         else
             addprocs(cs)
-            #loadprocs(estset.mode)
+            loadprocs(estset.mode)
 
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
