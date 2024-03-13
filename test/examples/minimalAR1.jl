@@ -1,13 +1,13 @@
 using StatsBase, DataFrames
 using MomentMatching # so that include line uses MomentMatching in loadprocs
 
-function MomentMatching.loadprocs(mode::AR1Estimation)
-    return @everywhere begin include("examples/minimalAR1.jl") end
-end
-
 struct AR1Estimation <: EstimationMode
     "mode-dependent prefix of filenames used for saving estimation results"
     filename::String
+end
+
+function MomentMatching.loadprocs(mode::AR1Estimation)
+    return @everywhere begin include("examples/minimalAR1.jl") end
 end
 
 struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters

@@ -2,6 +2,7 @@
 #using TestEnv
 #TestEnv.activate()
 using MomentMatching, Test, Plots, OptimizationOptimJL
+using Distributed
 
 include("examples/minimalAR1.jl")
 
@@ -20,7 +21,7 @@ est_11 = estimation(setup; npmm=npest, cs = cs_11, presh = presh, saving=false)
 @test est_11 isa EstimationResult
 
 cs_14 = ComputationSettings(num_procs = 1, num_tasks = 4)
-est_14 = estimation(setup; npmm=npest, cs = cs_114, presh = presh, saving=false)
+est_14 = estimation(setup; npmm=npest, cs = cs_14, presh = presh, saving=false)
 @test est_14 isa EstimationResult
 
 cs_31 = ComputationSettings(num_procs = 3, num_tasks = 1)
@@ -30,6 +31,11 @@ est_31 = estimation(setup; npmm=npest, cs = cs_31, presh = presh, saving=false)
 cs_34 = ComputationSettings(num_procs = 3, num_tasks = 4)
 est_34 = estimation(setup; npmm=npest, cs = cs_34, presh = presh, saving=false)
 @test est_34 isa EstimationResult
+
+plot(est_31.fglo)
+plot!(est_11.fglo)
+plot!(est_14.fglo)
+plot!(est_34.fglo)
 
 @test est_11.fglo == est_14.fglo && est_11.xglo == est_14.xglo && est_11.momglo == est_14.momglo
 @test est_11.fglo == est_31.fglo && est_11.xglo == est_31.xglo && est_11.momglo == est_31.momglo
