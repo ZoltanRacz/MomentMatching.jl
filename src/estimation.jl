@@ -601,6 +601,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Loads model-specific files on all processes. Used only with multiprocessing. Should be defined for any subtype of [`EstimationMode`](@ref).
+"""
+function loadprocs(mode::PreferenceEstimation)
+    throw(error("a separate method has to be written for $(typeof(mode))"))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 List of estimated parameters. 
 """
 function labels(estset::EstimationSetup)
