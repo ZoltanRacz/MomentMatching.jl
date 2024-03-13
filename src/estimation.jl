@@ -596,16 +596,16 @@ function mdiff(mode::EstimationMode, m::AbstractVector, momdat::AbstractVector, 
     return (momdat .- m) ./ mmomdat
 end
 
-# OTHER USEFUL FUNCTIONS
-
 """
 $(TYPEDSIGNATURES)
 
 Loads model-specific files on all processes. Used only with multiprocessing. Should be defined for any subtype of [`EstimationMode`](@ref).
 """
-function loadprocs(mode::PreferenceEstimation)
+function loadprocs(mode::EstimationMode)
     throw(error("a separate method has to be written for $(typeof(mode))"))
 end
+
+# OTHER USEFUL FUNCTIONS
 
 """
 $(TYPEDSIGNATURES)
