@@ -15,20 +15,20 @@ Threads.nthreads() != 1 || @warn("multithreading is not tested")
 aux = AuxiliaryParameters(AR1Estimation("ar1estim"), "")
 presh = PredrawnShocks(AR1Estimation("ar1estim"), "", "", aux) 
 
-cp11 = ComputationSettings(num_procs = 1, num_tasks = 1)
-est_11 = estimation(setup; npmm=npest, cs = cp11, presh = presh, saving=false)
+cs_11 = ComputationSettings(num_procs = 1, num_tasks = 1)
+est_11 = estimation(setup; npmm=npest, cs = cs_11, presh = presh, saving=false)
 @test est_11 isa EstimationResult
 
-cp14 = ComputationSettings(num_procs = 1, num_tasks = 4)
-est_14 = estimation(setup; npmm=npest, cs = cp14, presh = presh, saving=false)
+cs_14 = ComputationSettings(num_procs = 1, num_tasks = 4)
+est_14 = estimation(setup; npmm=npest, cs = cs_114, presh = presh, saving=false)
 @test est_14 isa EstimationResult
 
-cp31 = ComputationSettings(num_procs = 3, num_tasks = 1)
-est_31 = estimation(setup; npmm=npest, cs = cp31, presh = presh, saving=false)
+cs_31 = ComputationSettings(num_procs = 3, num_tasks = 1)
+est_31 = estimation(setup; npmm=npest, cs = cs_31, presh = presh, saving=false)
 @test est_31 isa EstimationResult
 
-cp34 = ComputationSettings(num_procs = 3, num_tasks = 4)
-est_34 = estimation(setup; npmm=npest, cs = cp34, presh = presh, saving=false)
+cs_34 = ComputationSettings(num_procs = 3, num_tasks = 4)
+est_34 = estimation(setup; npmm=npest, cs = cs_34, presh = presh, saving=false)
 @test est_34 isa EstimationResult
 
 @test est_11.fglo == est_14.fglo && est_11.xglo == est_14.xglo && est_11.momglo == est_14.momglo

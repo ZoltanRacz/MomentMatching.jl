@@ -362,14 +362,40 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
 
-            for i in eachindex(workers())
-                chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
-                if cs.num_tasks==1
-                    singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
-                else
-                    multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
-                end
+            @eval @everywhere cs=$cs
+            @eval @everywhere Nglo=$Nglo
+            @eval @everywhere estset=$estset
+            @eval @everywhere xg=$xg
+            @eval @everywhere pmm=$pmm
+            @eval @everywhere aux=$aux
+            @eval @everywhere presh=$presh
+            @eval @everywhere errorcatching=$errorcatching
+            @eval @everywhere using MomentMatching
+
+            # not even an empty @spawnat works
+            f = @spawnat workers()[1] begin
+                i=1
+                println("at worker $(myid())")
+                return 1
+
+                # chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
+                # if cs.num_tasks==1
+                #     singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
+                # else
+                #     multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
+                # end
             end
+
+            res = fetch(f)
+
+            # @distributed for i in eachindex(workers())
+            #     chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
+            #     if cs.num_tasks==1
+            #         singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
+            #     else
+            #         multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
+            #     end
+            # end
 
             rmprocs(workers())
             # convert objg and momg to normal array here
