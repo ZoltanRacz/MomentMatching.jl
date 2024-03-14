@@ -6,7 +6,7 @@ struct AR1Estimation <: EstimationMode
     filename::String
 end
 
-function MomentMatching.loadprocs(mode::AR1Estimation)
+function MomentMatching.load_on_procs(mode::AR1Estimation)
     return @everywhere begin include("examples/minimalAR1.jl") end
 end
 
