@@ -362,34 +362,6 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
 
-            #@eval @everywhere cs=$cs
-            #@eval @everywhere Nglo=$Nglo
-            #@eval @everywhere estset=$estset
-            #@eval @everywhere xg=$xg
-            #@eval @everywhere pmm=$pmm
-            #@eval @everywhere aux=$aux
-            #@eval @everywhere presh=$presh
-            #@eval @everywhere errorcatching=$errorcatching
-            #@eval @everywhere using MomentMatching
-
-            # # not even an empty @spawnat works
-            # f = @spawnat workers()[1] begin
-            #     i=1
-            #     # println("at worker $(myid())")
-            #     # return 1
-
-            #     chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
-            #     if cs.num_tasks==1
-            #         singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
-            #     else
-            #         multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
-            #     end
-            #     return 1
-            # end
-
-            # res = fetch(f)
-            # println(res)
-
             @sync @distributed for i in eachindex(workers())
                 chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
                 if cs.num_tasks==1
@@ -400,7 +372,6 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end
 
             rmprocs(workers())
-            # convert objg and momg to normal array here
         end
 
         momg = [momg[:,i] for i in axes(momg,2)]
@@ -484,8 +455,12 @@ function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset:
             momnormg_ch = Vector{Float64}(undef, length(pmm.momdat))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk) # do stuff for all index in chunk
+                Threads.nthreads()
                 fullind = chunk_proc[chunk[n]]
+                println(xg[fullind])
                 objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
+                println(objg_ch[n])
+                println(momg[:,n])
                 #ProgressMeter.next!(prog)
             end
             # and then returns the result
