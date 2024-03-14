@@ -357,7 +357,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end            
         else
             addprocs(cs)
-            loadprocs(estset.mode)
+            load_on_procs(estset.mode)
 
             objg = SharedArray(fill(-1.0, Nglo))
             momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
@@ -600,8 +600,8 @@ $(TYPEDSIGNATURES)
 
 Loads model-specific files on all processes. Used only with multiprocessing. Should be defined for any subtype of [`EstimationMode`](@ref).
 """
-function loadprocs(mode::EstimationMode)
-    throw(error("a separate method has to be written for $(typeof(mode))"))
+function load_on_procs(mode::EstimationMode)
+    throw(error("A separate method of 'load_on_procs' has to be written for $(typeof(mode)) when using multiprocessing."))
 end
 
 # OTHER USEFUL FUNCTIONS

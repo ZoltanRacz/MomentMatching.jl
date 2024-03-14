@@ -38,6 +38,7 @@ export estimation, # main functions
        default_weight_matrix,
        ftypemom,
        indexvector,
+       load_on_procs,
        mdiff,
        momentnames,
        obj_mom,
