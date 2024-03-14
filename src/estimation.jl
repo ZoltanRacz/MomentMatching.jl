@@ -456,10 +456,7 @@ function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset:
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk) # do stuff for all index in chunk
                 fullind = chunk_proc[chunk[n]]
-                println(xg[fullind])
                 objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
-                println(objg_ch[n])
-                println(momg_ch[:,n])
                 #ProgressMeter.next!(prog)
             end
             # and then returns the result
