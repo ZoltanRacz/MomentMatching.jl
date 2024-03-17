@@ -87,13 +87,15 @@ Supplies empty arrays for computations to calculate model moments as few memory 
 """
 abstract type PreallocatedContainers end
 
+struct EmptyPreallocatedContainers <: PredrawnShocks end
+
 """
 $(TYPEDSIGNATURES)
 
 Set up default PreallocatedContainers object. Should be defined for specific estimation mode only if it is used.
 """
 function PreallocatedContainers(mode::EstimationMode, modelname::String, typemom::String, aux::AuxiliaryParameters)
-    return PreallocatedContainers()
+    return EmptyPreallocatedContainers()
 end
 
 PreallocatedContainers(estset::EstimationSetup, aux::AuxiliaryParameters) = PreallocatedContainers(estset.mode, estset.modelname, estset.typemom, aux)
