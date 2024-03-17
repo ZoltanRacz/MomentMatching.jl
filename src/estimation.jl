@@ -436,8 +436,8 @@ end
 
 function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_proc::StepRange)
     momnormg = Vector{Float64}(undef, length(pmm.momdat))
+    preal = PreallocatedContainers(estset, aux)
     for i in chunk_proc
-        preal = PreallocatedContainers(estset, aux)
         objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
     end
 end
@@ -453,8 +453,8 @@ function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset:
             objg_ch = Vector{Float64}(undef, length(chunk))
             momg_ch = Array{Float64}(undef, length(pmm.momdat),length(chunk))
             momnormg_ch = Vector{Float64}(undef, length(pmm.momdat))
+            preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk) # do stuff for all index in chunk
-                preal = PreallocatedContainers(estset, aux)
                 fullind = chunk_proc[chunk[n]]
                 objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
                 #ProgressMeter.next!(prog)
