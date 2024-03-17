@@ -87,7 +87,7 @@ Supplies empty arrays for computations to calculate model moments as few memory 
 """
 abstract type PreallocatedContainers end
 
-struct EmptyPreallocatedContainers <: PredrawnShocks end
+struct EmptyPreallocatedContainers <: PreallocatedContainers end
 
 """
 $(TYPEDSIGNATURES)
