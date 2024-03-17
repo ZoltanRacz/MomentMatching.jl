@@ -370,22 +370,32 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
                     multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
                 end
             end
-
-            rmprocs(workers())
         end
 
-        momg = [momg[:,i] for i in axes(momg,2)]
+        permg = sortperm(objg)
+
+        objg_sort = objg[permg]
+        momg_sort = [momg[:,i] for i in axes(momg,2)][permg]
+
+        if cs.num_procs>1
+           @everywhere begin
+               objg = nothing
+               momg = nothing
+           end
+
+           rmprocs(workers())
+        end
 
         if onlyglo
 
             if saving_bestmodel
                 for i in 1:number_bestmodel
-                    obj_mom(mode, xg[sortperm(objg)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
+                    obj_mom(mode, xg[permg[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
                 end
             end
 
             return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-                objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)],
+                objg_sort, xg[permg], momg_sort,
                 [0.0], [[0.0]], [[0.0]], [false])
         end
 
