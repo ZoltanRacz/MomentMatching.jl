@@ -450,8 +450,7 @@ function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset
     momnormg = Vector{Float64}(undef, length(pmm.momdat))
     preal = PreallocatedContainers(estset, aux)
     for i in chunk_proc
-        #objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
-        objg[i] = objf!(momg[:,i], momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
+        objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
     end
 end
 
