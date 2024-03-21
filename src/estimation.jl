@@ -579,10 +579,10 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
     #finish!(prog)
 
     for (i, chunk) in enumerate(chunks_th)
-        objl[chunk_proc[chunk]] = outstates[i][1]
-        xl[:, chunk_proc[chunk]] = outstates[i][2]
-        moml[:, chunk_proc[chunk]] = outstates[i][3]
-        conv[chunk_proc[chunk]] = outstates[i][4]
+        objl[chunk_procl[chunk]] = outstates[i][1]
+        xl[:, chunk_procl[chunk]] = outstates[i][2]
+        moml[:, chunk_procl[chunk]] = outstates[i][3]
+        conv[chunk_procl[chunk]] = outstates[i][4]
     end
 end
 
