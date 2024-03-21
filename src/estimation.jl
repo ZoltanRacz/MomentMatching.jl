@@ -591,7 +591,7 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::AbstractVector, xsol::AbstractVector, mom::AbstractVector, momnorm::AbstractVector, conv::AbstractVector, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+function opt_loc!(obj::AbstractVector, xsol::AbstractMatrix, mom::AbstractMatrix, momnorm::AbstractVector, conv::AbstractVector, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
     problem = OptimizationProblem((y, unused) -> objf!(view(mom, :, n), momnorm, estset, y, pmm, aux, presh, preal, errorcatching), xcand)
     settings = deepcopy(local_opt_settings)
     algorithm = pop!(settings,:algorithm)
