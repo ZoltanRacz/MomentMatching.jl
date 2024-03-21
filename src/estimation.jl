@@ -561,7 +561,7 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
     tasks = map(chunks_th) do chunk
         Threads.@spawn begin
             objl_ch = Vector{Float64}(undef, length(chunk))
-            xl_ch = Array{Float64}(undef, length(xl[1]), length(chunk))
+            xl_ch = Array{Float64}(undef, size(xl[1],1), length(chunk))
             moml_ch = Array{Float64}(undef, length(pmm.momdat), length(chunk))
             conv_ch = Array{Bool}(undef, length(chunk))
             momnorml_ch = Vector{Float64}(undef, length(pmm.momdat))
