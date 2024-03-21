@@ -466,7 +466,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
     end
 
     return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-        objg, xg[permg], momg_sort,
+        objg_sort, xg[permg], momg_sort,
         objl_sort, xl_sort, moml_sort, conv_sort, perml)
 end
 
