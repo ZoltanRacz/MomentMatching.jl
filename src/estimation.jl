@@ -496,7 +496,7 @@ function singlethread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::A
     preal = PreallocatedContainers(estset, aux)
     for i in chunk_procl
         opt_loc!(objl, xl, moml, momnorml, conv, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xsort[i], i, errorcatching)
-        objf!(view(moml, :, i), momnorml, estset, view(xl, :, i), pmm, aux, presh, preal, errorcatching)
+        objf!(view(moml, :, i), momnorml, estset, xl[:, i], pmm, aux, presh, preal, errorcatching)
     end
 end
 
@@ -569,7 +569,7 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
             for n in eachindex(chunk)
                 fullind = chunk[n]
                 opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
-                objf!(view(moml_ch, :,n), momnorml_ch, estset, view(xl_ch,:,n), pmm, aux, presh, preal, errorcatching)
+                objf!(view(moml_ch, :,n), momnorml_ch, estset, xl_ch[:, n], pmm, aux, presh, preal, errorcatching)
                 #ProgressMeter.next!(prog)
             end
             return objl_ch, xl_ch, moml_ch, conv_ch
