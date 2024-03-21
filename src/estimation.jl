@@ -419,7 +419,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         if cs.num_tasks == 1
             singlethread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
         else
-            multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
+            multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
         end
     else
         addprocs(cs)
@@ -435,7 +435,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             if cs.num_tasks == 1
                 singlethread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
             else
-                multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
+                multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
             end
         end
     end
@@ -555,7 +555,7 @@ $(TYPEDSIGNATURES)
 
 Performs the local stage with multiple threads.
 """
-function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, xl::AbstractMatrix, xsort::AbstractVector, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_procl::StepRange)
+function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, xl::AbstractMatrix, xsort::AbstractVector, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, cs::ComputationSettings, chunk_procl::StepRange)
     chunks_th = chunks(chunk_procl; n=cs.num_tasks)
     #prog = Progress(Nloc; desc="Performing local stage...")
     tasks = map(chunks_th) do chunk
