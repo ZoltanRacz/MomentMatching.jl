@@ -380,6 +380,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 
         objg_sort = objg[permg]
         momg_sort = [momg[:,i] for i in axes(momg,2)][permg]
+        xg_sort = xg[permg]
 
         if cs.num_procs>1
            @everywhere begin
@@ -394,16 +395,16 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 
             if saving_bestmodel
                 for i in 1:number_bestmodel
-                    obj_mom(mode, xg[permg[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
+                    obj_mom(mode, xg_sort[i], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
                 end
             end
 
             return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-                objg_sort, xg[permg], momg_sort,
+                objg_sort, xg_sort, momg_sort,
                 [0.0], [[0.0]], [[0.0]], [false], [0])
         end
 
-        xsort = xg[sortperm(objg)[1:Nloc]]
+        xsort = xg_sort[1:Nloc]
     else
         xsort = xlocstart
         Nloc = length(xlocstart)
@@ -465,9 +466,15 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         end
     end
 
+    if onlyloc
+        objg_sort = [-1.0]
+        xg_sort = [[1.0]]
+        momg_sort = [[1.0]]
+    end
+
     return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-        objg_sort, xg[permg], momg_sort,
-        objl_sort, xl_sort, moml_sort, conv_sort, perml)
+        objg_sort, xg_sort, momg_sort,
+        objl_sort, xl_sort, moml_sort, conv_sort)
 end
 
 """
