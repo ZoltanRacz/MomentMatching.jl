@@ -578,6 +578,7 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
     outstates = fetch.(tasks)
     #finish!(prog)
     println(outstates[1][1], outstates[2][1], outstates[3][1], outstates[4][1])
+    println(outstates[1][2], outstates[2][2], outstates[3][2], outstates[4][2])
     for (i, chunk) in enumerate(chunks_th)
         objl[chunk_procl[chunk]] = outstates[i][1]
         xl[:, chunk_procl[chunk]] = outstates[i][2]
