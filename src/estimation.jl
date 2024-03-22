@@ -415,7 +415,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         objl = fill(-1.0, Nloc)
         moml = Array{Float64}(undef, length(pmm.momdat), Nloc)
         conv = Vector{Bool}(undef, Nloc)
-        xl = stack(xsort, dims = 2)
+        xl = hcat(xlocstart...)
         chunk_procl = 1:1:Nloc
         if cs.num_tasks == 1
             singlethread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
@@ -429,7 +429,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         objl = SharedArray(fill(-1.0, Nloc))
         moml = SharedArray{Float64}(length(pmm.momdat), Nloc)
         conv = SharedArray{Bool}(Nloc)
-        xl = SharedArray(stack(xsort, dims=2))
+        xl = SharedArray(hcat(xsort...))
 
         @sync @distributed for i in eachindex(workers())
             chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
