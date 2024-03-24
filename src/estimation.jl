@@ -399,7 +399,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
 
             return EstimationResult(npmm, aux, presh, xlocstart, pmm,
                 objg_sort, xg_sort, momg_sort,
-                [0.0], [[0.0]], [[0.0]], [false], [0])
+                [0.0], [[0.0]], [[0.0]], [false])
         end
 
         xlocstart = xg_sort[1:Nloc]
