@@ -1,8 +1,13 @@
 using StatsBase, DataFrames
+using MomentMatching, Distributed, OptimizationOptimJL # so that include line uses these packages in load_on_procs
 
 struct AR1Estimation <: EstimationMode
     "mode-dependent prefix of filenames used for saving estimation results"
     filename::String
+end
+
+function MomentMatching.load_on_procs(mode::AR1Estimation)
+    return @everywhere begin include("examples/minimalAR1.jl") end
 end
 
 struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters

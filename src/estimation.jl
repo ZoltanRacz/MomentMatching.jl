@@ -87,13 +87,15 @@ Supplies empty arrays for computations to calculate model moments as few memory 
 """
 abstract type PreallocatedContainers end
 
+struct EmptyPreallocatedContainers <: PreallocatedContainers end
+
 """
 $(TYPEDSIGNATURES)
 
 Set up default PreallocatedContainers object. Should be defined for specific estimation mode only if it is used.
 """
 function PreallocatedContainers(mode::EstimationMode, modelname::String, typemom::String, aux::AuxiliaryParameters)
-    return PreallocatedContainers()
+    return EmptyPreallocatedContainers()
 end
 
 PreallocatedContainers(estset::EstimationSetup, aux::AuxiliaryParameters) = PreallocatedContainers(estset.mode, estset.modelname, estset.typemom, aux)
@@ -197,6 +199,22 @@ struct EstimationResult{S<:AbstractFloat,T<:Integer,U<:AuxiliaryParameters,V<:Pr
     conv::Vector{Bool}
 end
 
+"""
+$(TYPEDEF)
+# Description
+Computational settings
+# Fields
+$(FIELDS)
+"""
+@with_kw struct ComputationSettings{T<:Integer}
+    "where computation is performed. 'local' and 'slurm' are supported presently"
+    location::String = "local"    
+    "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On a cluster give number of nodes (Should double check this)."
+    num_procs::T = 1
+    "Number of tasks per process. Giving somewhat more than the number of actual ( virtual or physical ?? ) threads is probably a good idea.  "
+    num_tasks::T = Threads.nthreads()*2
+end
+
 ## MAIN FUNCTION
 
 """
@@ -206,14 +224,14 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 """
-function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
+function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), cs::ComputationSettings = ComputationSettings(), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
     presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer=1, filename_suffix::String="", errorcatching::Bool=false, vararg...)
 
-    @assert(!threading_inside())
+    @assert(!threading_inside() || cs.num_tasks==1)
 
     pmm = initMMmodel(estset, npmm; vararg...) # initialize inputs for estimation
 
-    mmsolu = matchmom(estset, pmm, npmm, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix, errorcatching) # perform estimation
+    mmsolu = matchmom(estset, pmm, npmm, cs, aux, presh, xlocstart, saving_bestmodel, number_bestmodel, filename_suffix, errorcatching) # perform estimation
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix) # saving
 
@@ -318,115 +336,255 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine.
 """
-function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String, errorcatching::Bool)
+function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::ComputationSettings, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String, errorcatching::Bool)
     @unpack Nglo, Nloc, onlyglo, onlyloc = npmm
     @unpack lb_global, ub_global = pmm
     @unpack mode, modelname, typemom = estset
 
     onlyloc && onlyglo && throw(error("should do either local or global or both"))
 
-    objg = fill(-1.0, Nglo)
-    momg = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:Nglo]
-    s = SobolSeq(lb_global, ub_global)
-    xg = [Sobol.next!(s) for i in 1:Nglo]
     if !onlyloc
         # global stage: evaluates the objective at Sobol sequence points
+        s = SobolSeq(lb_global, ub_global)
+        xg = [Sobol.next!(s) for i in 1:Nglo]
 
-        chunks = getchunks(Nglo) # the Nglo indices are separated into bigger chunks 
-        prog = Progress(Nglo; desc="Performing global stage...")
-        tasks = map(chunks) do chunk
-            # Each chunk gets its own spawned task that does its own local, sequential work. every task is assigned to one thread.
+        if cs.num_procs==1
+            objg = fill(-1.0, Nglo)
+            momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
+            chunk_proc = 1:1:Nglo
+            if cs.num_tasks==1
+                singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
+            else
+                multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
+            end            
+        else
+            addprocs(cs)
+            load_on_procs(estset.mode)
 
-            Threads.@spawn begin
-                # preallocate once per chunk
-                objg_ch = Vector{Float64}(undef, length(chunk))
-                momg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
-                momnormg_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
-                preal = PreallocatedContainers(estset, aux)
-                for n in eachindex(chunk) # do stuff for all index in chunk
-                    fullind = chunk[n]
-                    objg_ch[n] = objf!(momg_ch[n], momnormg_ch[n], estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
-                    ProgressMeter.next!(prog)
+            objg = SharedArray(fill(-1.0, Nglo))
+            momg = SharedArray{Float64}(length(pmm.momdat), Nglo)
+
+            @sync @distributed for i in eachindex(workers())
+                chunk_proc = getchunk(1:Nglo, i; n = cs.num_procs)
+                if cs.num_tasks==1
+                    singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
+                else
+                    multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
                 end
-                # and then returns the result
-                return objg_ch, momg_ch
             end
         end
-        outstates = fetch.(tasks) # collect results from tasks
-        finish!(prog)
 
-        for (i, chunk) in enumerate(chunks) # organize results in final form
-            objg[chunk] = outstates[i][1]
-            momg[chunk] = outstates[i][2]
+        permg = sortperm(objg)
+
+        objg_sort = objg[permg]
+        momg_sort = [momg[:,i] for i in axes(momg,2)][permg]
+        xg_sort = xg[permg]
+
+        if cs.num_procs>1
+           @everywhere begin
+               objg = nothing
+               momg = nothing
+           end
+
+           rmprocs(workers())
         end
 
         if onlyglo
 
             if saving_bestmodel
                 for i in 1:number_bestmodel
-                    obj_mom(mode, xg[sortperm(objg)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
+                    obj_mom(mode, xg_sort[i], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
                 end
             end
 
             return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-                objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)],
+                objg_sort, xg_sort, momg_sort,
                 [0.0], [[0.0]], [[0.0]], [false])
         end
 
-        xsort = xg[sortperm(objg)[1:Nloc]]
+        xlocstart = xg_sort[1:Nloc]
     else
-        xsort = xlocstart
         Nloc = length(xlocstart)
     end
 
-    objl = Vector{Float64}(undef, Nloc)
-    xl = deepcopy(xsort)
-    moml = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:Nloc]
-    conv = Vector{Bool}(undef, Nloc)
+    # local stage: applies local optimization algorithm to find optimum starting from best global points
+    if cs.num_procs==1
+        objl = fill(-1.0, Nloc)
+        moml = Array{Float64}(undef, length(pmm.momdat), Nloc)
+        conv = Vector{Bool}(undef, Nloc)
+        xl = Array{Float64}(undef, length(xlocstart[1]), Nloc)
+        chunk_procl = 1:1:Nloc
+        if cs.num_tasks == 1
+            singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl)
+        else
+            multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl)
+        end
+    else
+        addprocs(cs)
+        load_on_procs(estset.mode)
 
-    chunks = getchunks(Nloc)
-    prog = Progress(Nloc; desc="Performing local stage...")
-    tasks = map(chunks) do chunk
+        objl = SharedArray(fill(-1.0, Nloc))
+        moml = SharedArray{Float64}(length(pmm.momdat), Nloc)
+        conv = SharedArray{Bool}(Nloc)
+        xl = SharedArray{Float64}(length(xlocstart[1]), Nloc)
+
+        @sync @distributed for i in eachindex(workers())
+            chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
+            if cs.num_tasks == 1
+                singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl)
+            else
+                multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl)
+            end
+        end
+    end
+
+    perml = sortperm(objl)
+
+    objl_sort = objl[perml]
+    moml_sort = [moml[:, i] for i in axes(moml, 2)][perml]
+    xl_sort = [xl[:, i] for i in axes(xl, 2)][perml]
+    conv_sort = conv[perml]
+
+    if cs.num_procs > 1
+        @everywhere begin
+            objl = nothing
+            moml = nothing
+            conv = nothing
+            xl = nothing
+        end
+
+        rmprocs(workers())
+    end
+
+
+    if saving_bestmodel
+        for i in 1:number_bestmodel
+            obj_mom(mode, xl_sort[i], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
+        end
+    end
+
+    if onlyloc
+        objg_sort = [-1.0]
+        xg_sort = [[1.0]]
+        momg_sort = [[1.0]]
+    end
+
+    return EstimationResult(npmm, aux, presh, xlocstart[perml], pmm,
+        objg_sort, xg_sort, momg_sort,
+        objl_sort, xl_sort, moml_sort, conv_sort)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Add processes locally or on cluster.
+"""
+function Distributed.addprocs(cs::ComputationSettings)
+    exefl = ["--project", "--threads=$(cs.num_tasks)"]
+    if cs.location == "local"
+        return addprocs(cs.num_procs, exeflags=exefl)
+    elseif cs.location == "slurm"
+        return addprocs(SlurmManager(cs.num_procs), exeflags=exefl)
+    else
+        throw(error("cs.location has to be either 'local' or 'slurm'."))
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the global stage on a single-thread.
+"""
+function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_proc::StepRange)
+    momnormg = Vector{Float64}(undef, length(pmm.momdat))
+    preal = PreallocatedContainers(estset, aux)
+    for i in chunk_proc
+        objg[i] = objf!(view(momg,:,i), momnormg, estset, xg[i], pmm, aux, presh, preal, errorcatching)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the global stage with multiple threads.
+"""
+function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, cs::ComputationSettings, chunk_proc::StepRange)
+    chunks_th = chunks(chunk_proc; n = cs.num_tasks)
+    #prog = Progress(Nglo; desc="Performing global stage...")
+    tasks = map(chunks_th) do chunk
+        # Each chunk gets its own spawned task that does its own local, sequential work. every task is assigned to one thread.
+
+        Threads.@spawn begin
+            # preallocate once per chunk
+            objg_ch = Vector{Float64}(undef, length(chunk))
+            momg_ch = Array{Float64}(undef, length(pmm.momdat),length(chunk))
+            momnormg_ch = Vector{Float64}(undef, length(pmm.momdat))
+            preal = PreallocatedContainers(estset, aux)
+            for n in eachindex(chunk) # do stuff for all index in chunk
+                fullind = chunk_proc[chunk[n]]
+                objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
+                #ProgressMeter.next!(prog)
+            end
+            # and then returns the result
+            return objg_ch, momg_ch
+        end
+    end
+    outstates = fetch.(tasks) # collect results from tasks
+    #finish!(prog)
+
+    for (i, chunk) in enumerate(chunks_th) # organize results in final form
+        objg[chunk_proc[chunk]] = outstates[i][1]
+        momg[:,chunk_proc[chunk]] = outstates[i][2]
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the local stage on a single-thread.
+"""
+function singlethread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector, errorcatching::Bool, chunk_procl::StepRange)
+    momnorml = Vector{Float64}(undef, length(pmm.momdat))
+    preal = PreallocatedContainers(estset, aux)
+    for i in chunk_procl
+        opt_loc!(objl, xl, moml, momnorml, conv, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xcands[i], i, errorcatching)
+        objf!(view(moml, :, i), momnorml, estset, xl[:, i], pmm, aux, presh, preal, errorcatching)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the local stage with multiple threads.
+"""
+function multithread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector,errorcatching::Bool, cs::ComputationSettings, chunk_procl::StepRange)
+    chunks_th = chunks(chunk_procl; n=cs.num_tasks)
+    #prog = Progress(Nloc; desc="Performing local stage...")
+    tasks = map(chunks_th) do chunk
         Threads.@spawn begin
             objl_ch = Vector{Float64}(undef, length(chunk))
-            xl_ch = [Vector{Float64}(undef, length(xl[1])) for _ in 1:length(chunk)]
-            moml_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
-            momnorml_ch = [Vector{Float64}(undef, length(pmm.momdat)) for _ in 1:length(chunk)]
+            xl_ch = Array{Float64}(undef, size(xl,1), length(chunk))
+            moml_ch = Array{Float64}(undef, length(pmm.momdat), length(chunk))
             conv_ch = Array{Bool}(undef, length(chunk))
+            momnorml_ch = Vector{Float64}(undef, length(pmm.momdat))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
-                fullind = chunk[n]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
-                objf!(moml_ch[n], momnorml_ch[n], estset, xl_ch[n], pmm, aux, presh, preal, errorcatching)
-                ProgressMeter.next!(prog)
+                fullind = chunk_procl[chunk[n]]
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xcands[fullind], n, errorcatching)
+                objf!(view(moml_ch, :,n), momnorml_ch, estset, xl_ch[:, n], pmm, aux, presh, preal, errorcatching)
+                #ProgressMeter.next!(prog)
             end
             return objl_ch, xl_ch, moml_ch, conv_ch
         end
     end
     outstates = fetch.(tasks)
-    finish!(prog)
-
-    for (i, chunk) in enumerate(chunks)
-        objl[chunk] = outstates[i][1]
-        xl[chunk] = outstates[i][2]
-        moml[chunk] = outstates[i][3]
-        conv[chunk] = outstates[i][4]
+    #finish!(prog)
+    for (i, chunk) in enumerate(chunks_th)
+        objl[chunk_procl[chunk]] = outstates[i][1]
+        xl[:, chunk_procl[chunk]] = outstates[i][2]
+        moml[:, chunk_procl[chunk]] = outstates[i][3]
+        conv[chunk_procl[chunk]] = outstates[i][4]
     end
-
-    if saving_bestmodel
-        for i in 1:number_bestmodel
-            obj_mom(mode, xl[sortperm(objl)[i]], modelname, typemom, aux, presh; saving_model=saving_bestmodel, filename=estimation_name(estset, npmm, filename_suffix) * "_$(i)")
-        end
-    end
-
-    return EstimationResult(npmm, aux, presh, xlocstart, pmm,
-        objg[sortperm(objg)], xg[sortperm(objg)], momg[sortperm(objg)],
-        objl[sortperm(objl)], xl[sortperm(objl)], moml[sortperm(objl)], conv[sortperm(objl)])
-end
-
-function getchunks(N::Integer; tasks_per_thread::Integer=2)
-    chunk_size = max(1, N ÷ (tasks_per_thread * Threads.nthreads()))
-    return Iterators.partition(1:N, chunk_size)
 end
 
 """
@@ -434,13 +592,13 @@ $(TYPEDSIGNATURES)
 
 Perform estimation routine, local stage.
 """
-function opt_loc!(obj::Vector{Float64}, xsol::Vector{Vector{Float64}}, mom::Vector{Vector{Float64}}, momnorm::Vector{Vector{Float64}}, conv::Vector{Bool}, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
-    problem = OptimizationProblem((y,unused) -> objf!(mom[n], momnorm[n], estset, y, pmm, aux, presh, preal, errorcatching), xcand)
+function opt_loc!(obj::AbstractVector, xsol::AbstractMatrix, mom::AbstractMatrix, momnorm::AbstractVector, conv::AbstractVector, local_opt_settings::Dict{Symbol,Any}, estset::EstimationSetup, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, pmm::ParMM, xcand::Vector{Float64}, n::Int64, errorcatching::Bool)
+    problem = OptimizationProblem((y, unused) -> objf!(view(mom, :, n), momnorm, estset, y, pmm, aux, presh, preal, errorcatching), xcand)
     settings = deepcopy(local_opt_settings)
     algorithm = pop!(settings,:algorithm)
     solution = solve(problem, algorithm; settings...)
     obj[n] = solution.objective
-    xsol[n] = solution.u
+    xsol[:, n] = solution.u
     conv[n] = SciMLBase.successful_retcode(solution.retcode)
 
     return nothing
@@ -453,7 +611,7 @@ $(TYPEDSIGNATURES)
 
 Computes the objective function.
 """
-function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::Vector{Float64}, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, errorcatching::Bool)
+function objf!(mom::AbstractVector, momnorm::AbstractVector, estset::EstimationSetup, x::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers, errorcatching::Bool)
     @unpack lb_hard, ub_hard, W, momdat, mmomdat, mdifrec = pmm
     @unpack mode, modelname, typemom = estset
     flat_penalty = 10^15
@@ -520,6 +678,15 @@ function mdiff(mode::EstimationMode, m::AbstractVector, momdat::AbstractVector, 
     return (momdat .- m) ./ mmomdat
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Loads model-specific files on all processes. Used only with multiprocessing. Should be defined for any subtype of [`EstimationMode`](@ref).
+"""
+function load_on_procs(mode::EstimationMode)
+    throw(error("A separate method of 'load_on_procs' has to be written for $(typeof(mode)) when using multiprocessing."))
+end
+
 # OTHER USEFUL FUNCTIONS
 
 """
@@ -554,7 +721,7 @@ Saving required elements, lighter version to save memory.
 """
 function save_estimation_lightweight(estset::EstimationSetup, mmsolu::EstimationResult; filename_suffix::String="", filename::String=estimation_name(estset, mmsolu.npmm, filename_suffix), bestN::Integer=5000)
 
-    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(), mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN, end)], mmsolu.xglo[1:min(bestN, end)], mmsolu.momglo[1:min(bestN, end)], mmsolu.floc[1:min(bestN, end)], mmsolu.xloc[1:min(bestN, end)], mmsolu.momloc[1:min(bestN, end)], mmsolu.conv[1:min(bestN, end)])
+    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(), mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN, end)], mmsolu.xglo[1:min(bestN, end)], mmsolu.momglo[1:min(bestN, end)], mmsolu.floc[1:min(bestN, end)], mmsolu.xloc[1:min(bestN, end)], mmsolu.momloc[1:min(bestN, end)], mmsolu.conv[1:min(bestN, end)], mmsolu.perml[1:min(bestN, end)])
 
     filename = estimation_result_path() * filename * "_lightweight" * ".jld"
     save(filename, "mmsolu", mmsolu2, "estset", estset)
