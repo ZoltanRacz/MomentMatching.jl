@@ -571,7 +571,7 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
             momnorml_ch = Vector{Float64}(undef, length(pmm.momdat))
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
-                fullind = chunk[n]
+                fullind = chunk_procl[chunk[n]]
                 opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xsort[fullind], n, errorcatching)
                 objf!(view(moml_ch, :,n), momnorml_ch, estset, xl_ch[:, n], pmm, aux, presh, preal, errorcatching)
                 #ProgressMeter.next!(prog)
@@ -581,8 +581,6 @@ function multithread_local!(objl::AbstractVector, moml::AbstractMatrix, conv::Ab
     end
     outstates = fetch.(tasks)
     #finish!(prog)
-    println(outstates[1][1], outstates[2][1], outstates[3][1], outstates[4][1])
-    println(outstates[1][2], outstates[2][2], outstates[3][2], outstates[4][2])
     for (i, chunk) in enumerate(chunks_th)
         objl[chunk_procl[chunk]] = outstates[i][1]
         xl[:, chunk_procl[chunk]] = outstates[i][2]
