@@ -172,7 +172,7 @@ Structure to store output of matching moments estimation procedure.
 # Fields
 $(FIELDS)
 """
-struct EstimationResult{R<:Integer, S<:AbstractFloat,T<:Integer,U<:AuxiliaryParameters,V<:PredrawnShocks}
+struct EstimationResult{S<:AbstractFloat,T<:Integer,U<:AuxiliaryParameters,V<:PredrawnShocks}
     "Numerical parameters"
     npmm::NumParMM{S,T}
     "Auxiliary inputs"
@@ -197,8 +197,6 @@ struct EstimationResult{R<:Integer, S<:AbstractFloat,T<:Integer,U<:AuxiliaryPara
     momloc::Vector{Vector{S}}
     "Logical, if true convergence criterion at minimum is satisfied in the local stage"
     conv::Vector{Bool}
-    "Sorting order of local points with respect to globals"
-    perml::Vector{R}
 end
 
 """
@@ -404,9 +402,8 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
                 [0.0], [[0.0]], [[0.0]], [false], [0])
         end
 
-        xsort = xg_sort[1:Nloc]
+        xlocstart = xg_sort[1:Nloc]
     else
-        xsort = xlocstart
         Nloc = length(xlocstart)
     end
 
@@ -418,9 +415,9 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         xl = hcat(xlocstart...)
         chunk_procl = 1:1:Nloc
         if cs.num_tasks == 1
-            singlethread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
+            singlethread_local!(objl, moml, conv, estset, xl, xlocstart, npmm, pmm, aux, presh, errorcatching, chunk_procl)
         else
-            multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
+            multithread_local!(objl, moml, conv, estset, xl, xlocstart, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
         end
     else
         addprocs(cs)
@@ -429,14 +426,14 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         objl = SharedArray(fill(-1.0, Nloc))
         moml = SharedArray{Float64}(length(pmm.momdat), Nloc)
         conv = SharedArray{Bool}(Nloc)
-        xl = SharedArray(hcat(xsort...))
+        xl = SharedArray(hcat(xlocstart...))
 
         @sync @distributed for i in eachindex(workers())
             chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
             if cs.num_tasks == 1
-                singlethread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, chunk_procl)
+                singlethread_local!(objl, moml, conv, estset, xl, xlocstart, npmm, pmm, aux, presh, errorcatching, chunk_procl)
             else
-                multithread_local!(objl, moml, conv, estset, xl, xsort, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
+                multithread_local!(objl, moml, conv, estset, xl, xlocstart, npmm, pmm, aux, presh, errorcatching, cs, chunk_procl)
             end
         end
     end
@@ -472,7 +469,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         momg_sort = [[1.0]]
     end
 
-    return EstimationResult(npmm, aux, presh, xlocstart, pmm,
+    return EstimationResult(npmm, aux, presh, xlocstart[perml], pmm,
         objg_sort, xg_sort, momg_sort,
         objl_sort, xl_sort, moml_sort, conv_sort)
 end
