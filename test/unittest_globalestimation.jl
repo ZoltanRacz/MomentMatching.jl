@@ -2,7 +2,6 @@
 #using TestEnv
 #TestEnv.activate()
 using MomentMatching, Test
-using Distributed
 
 include("examples/minimalAR1.jl")
 

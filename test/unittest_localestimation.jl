@@ -1,9 +1,8 @@
 # useful lines for testing manually, while developing. Install TestEnv in your main environment. When running the first time, activate and instantiate the test environment before restarting Julia and using TestEnv. For more info check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
 #using TestEnv
 #TestEnv.activate()
-using MomentMatching, Test, OptimizationOptimJL
-using Distributed
-
+using MomentMatching, Test
+using OptimizationOptimJL
 include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
@@ -39,11 +38,6 @@ cs_34 = ComputationSettings(num_procs = 3, num_tasks = 4)
 est_34 = estimation(setup; npmm, presh, xlocstart, cs = cs_34, saving=false)
 @test est_34 isa EstimationResult
 
-plot(est_31.fglo)
-plot!(est_11.fglo)
-plot!(est_14.fglo)
-plot!(est_34.fglo)
-
-@test est_11.fglo == est_14.fglo && est_11.xglo == est_14.xglo && est_11.momglo == est_14.momglo
-@test est_11.fglo == est_31.fglo && est_11.xglo == est_31.xglo && est_11.momglo == est_31.momglo
-@test est_11.fglo == est_34.fglo && est_11.xglo == est_34.xglo && est_11.momglo == est_34.momglo
+@test est_11.floc == est_14.floc && est_11.xloc == est_14.xloc && est_11.momloc == est_14.momloc
+@test est_11.floc == est_31.floc && est_11.xloc == est_31.xloc && est_11.momloc == est_31.momloc
+@test est_11.floc == est_34.floc && est_11.xloc == est_34.xloc && est_11.momloc == est_34.momloc 
