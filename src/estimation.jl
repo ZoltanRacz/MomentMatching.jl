@@ -721,7 +721,7 @@ Saving required elements, lighter version to save memory.
 """
 function save_estimation_lightweight(estset::EstimationSetup, mmsolu::EstimationResult; filename_suffix::String="", filename::String=estimation_name(estset, mmsolu.npmm, filename_suffix), bestN::Integer=5000)
 
-    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(), mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN, end)], mmsolu.xglo[1:min(bestN, end)], mmsolu.momglo[1:min(bestN, end)], mmsolu.floc[1:min(bestN, end)], mmsolu.xloc[1:min(bestN, end)], mmsolu.momloc[1:min(bestN, end)], mmsolu.conv[1:min(bestN, end)], mmsolu.perml[1:min(bestN, end)])
+    mmsolu2 = EstimationResult(mmsolu.npmm, mmsolu.aux, EmptyPredrawnShocks(), mmsolu.xlocstart, mmsolu.pmm, mmsolu.fglo[1:min(bestN, end)], mmsolu.xglo[1:min(bestN, end)], mmsolu.momglo[1:min(bestN, end)], mmsolu.floc[1:min(bestN, end)], mmsolu.xloc[1:min(bestN, end)], mmsolu.momloc[1:min(bestN, end)], mmsolu.conv[1:min(bestN, end)])
 
     filename = estimation_result_path() * filename * "_lightweight" * ".jld"
     save(filename, "mmsolu", mmsolu2, "estset", estset)
