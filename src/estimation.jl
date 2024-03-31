@@ -213,6 +213,8 @@ $(FIELDS)
     num_procs::T = 1
     "Number of tasks per process. Giving somewhat more than the number of actual ( virtual or physical ?? ) threads is probably a good idea.  "
     num_tasks::T = Threads.nthreads()*2
+    "Other settings"
+    clustermanager_settings::Dict{Symbol,String}
 end
 
 ## MAIN FUNCTION
@@ -500,7 +502,7 @@ function Distributed.addprocs(cs::ComputationSettings)
     if cs.location == "local"
         return addprocs(cs.num_procs, exeflags=exefl)
     elseif cs.location == "slurm"
-        return addprocs(SlurmManager(cs.num_procs), exeflags=exefl)
+        return addprocs(SlurmManager(cs.num_procs); exeflags=exefl, cs.clustermanager_settings...)
     else
         throw(error("cs.location has to be either 'local' or 'slurm'."))
     end
