@@ -213,8 +213,10 @@ $(FIELDS)
     num_procs::T = 1
     "Number of tasks per process. Giving somewhat more than the number of actual ( virtual or physical ?? ) threads is probably a good idea.  "
     num_tasks::T = Threads.nthreads()*2
+    "Number of threads that each processes are started with."
+    num_threads::T = num_tasks
     "Other settings"
-    clustermanager_settings::Dict{Symbol,String}
+    clustermanager_settings::Dict{Symbol,String} = Dict(:x => "")
 end
 
 ## MAIN FUNCTION
@@ -498,7 +500,7 @@ $(TYPEDSIGNATURES)
 Add processes locally or on cluster.
 """
 function Distributed.addprocs(cs::ComputationSettings)
-    exefl = ["--project", "--threads=$(cs.num_tasks)"]
+    exefl = ["--project", "--threads=$(cs.num_threads)"]
     if cs.location == "local"
         return addprocs(cs.num_procs, exeflags=exefl)
     elseif cs.location == "slurm"
