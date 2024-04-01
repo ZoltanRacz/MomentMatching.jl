@@ -216,6 +216,8 @@ $(FIELDS)
     num_tasks::T = Threads.nthreads()*2
     "Number of threads that each processes are started with."
     num_threads::T = num_tasks
+    "Trigger intensive garbage collection at this memory usage"
+    maxmem::T = -1
     "Other settings"
     clustermanager_settings::Dict{Symbol,String} = Dict(:x => "")
 end
@@ -505,6 +507,9 @@ Add processes locally or on cluster.
 """
 function Distributed.addprocs(cs::ComputationSettings)
     exefl = ["--project", "--threads=$(cs.num_threads)"]
+    if cs.maxmem != 1
+        push!(exefl,"--heap-size-hint=$(cs.maxmem)G")
+    end
     if cs.location == "local"
         return addprocs(cs.num_procs, exeflags=exefl)
     elseif cs.location == "slurm"
