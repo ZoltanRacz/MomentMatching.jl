@@ -129,18 +129,11 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
-function NumParMM(estset::EstimationSetup; sobolinds::UnitRange{T}=1:10000, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
+function NumParMM(estset::EstimationSetup; Nglo::T=10000, sobolinds::UnitRange{T}=-1:-1, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
     typeof(local_opt_settings) <: NamedTuple && (local_opt_settings = Dict(pairs(local_opt_settings)))
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
-    return NumParMM(sobolinds, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
-end
-
-# these two sets of defaults are not nice!!
-
-function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
-    typeof(local_opt_settings) <: NamedTuple && (local_opt_settings = Dict(pairs(local_opt_settings)))
-    full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
-    return NumParMM(1:Nglo, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
+    sinds = ifelse(sobolinds == -1:-1, 1:Nglo, sobolinds)
+    return NumParMM(sinds, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
 end
 
 """
