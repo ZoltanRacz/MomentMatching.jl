@@ -353,7 +353,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
     if !onlyloc
         # global stage: evaluates the objective at Sobol sequence points
         s = SobolSeq(lb_global, ub_global)
-        xg0 = [Sobol.next!(s) for i in 1:Nglo[end]]
+        xg0 = [Sobol.next!(s) for i in 1:sobolinds[end]]
         xg = xg0[sobolinds]
 
         if cs.num_procs==1
