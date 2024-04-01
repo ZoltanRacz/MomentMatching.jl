@@ -356,7 +356,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         xg0 = [Sobol.next!(s) for i in 1:sobolinds[end]]
         xg = xg0[sobolinds]
 
-        if cs.num_procs==1
+        if cs.num_procs==1 && cs.location == "local"
             objg = fill(-1.0, Nglo)
             momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
             chunk_proc = 1:1:Nglo
@@ -421,7 +421,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
     end
 
     # local stage: applies local optimization algorithm to find optimum starting from best global points
-    if cs.num_procs==1
+    if cs.num_procs==1 && cs.location == "local"
         objl = fill(-1.0, Nloc)
         moml = Array{Float64}(undef, length(pmm.momdat), Nloc)
         conv = Vector{Bool}(undef, Nloc)
