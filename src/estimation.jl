@@ -108,8 +108,8 @@ Structure to store numerical parameters for estimation procedure.
 $(FIELDS)
 """
 @with_kw struct NumParMM{S<:AbstractFloat,T<:Integer}
-    "# of Sobol points to evaluate for global stage of estimation"
-    Nglo::T
+    "Indexes of Sobol points to use"
+    sobolinds::UnitRange{T}
     "# of best points to evaluate for local stage of estimation (or to save if only global stage, see [`matchmom`](@ref))"
     Nloc::T
     "Lower bound for parameters in global stage"
@@ -129,10 +129,18 @@ $(TYPEDSIGNATURES)
 
 Create instance of NumParMM.
 """
+function NumParMM(estset::EstimationSetup; sobolinds::UnitRange{T}=1:10000, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
+    typeof(local_opt_settings) <: NamedTuple && (local_opt_settings = Dict(pairs(local_opt_settings)))
+    full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
+    return NumParMM(sobolinds, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
+end
+
+# these two sets of defaults are not nice!!
+
 function NumParMM(estset::EstimationSetup; Nglo::T=10000, Nloc::T=100, onlyglo::Bool=false, onlyloc::Bool=false, local_opt_settings = Dict(:algorithm => NelderMead(), :maxiter => 10000)) where {T<:Integer}
     typeof(local_opt_settings) <: NamedTuple && (local_opt_settings = Dict(pairs(local_opt_settings)))
     full_lb_global, full_ub_global = parambounds(estset.mode)[3:4]
-    return NumParMM(Nglo, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
+    return NumParMM(1:Nglo, Nloc, full_lb_global, full_ub_global, onlyglo, onlyloc, local_opt_settings)
 end
 
 """
@@ -341,16 +349,19 @@ $(TYPEDSIGNATURES)
 Perform estimation routine.
 """
 function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::ComputationSettings, aux::AuxiliaryParameters, presh::PredrawnShocks, xlocstart::Array{Vector{Float64},1}, saving_bestmodel::Bool, number_bestmodel::Integer, filename_suffix::String, errorcatching::Bool)
-    @unpack Nglo, Nloc, onlyglo, onlyloc = npmm
+    @unpack sobolinds, Nloc, onlyglo, onlyloc = npmm
     @unpack lb_global, ub_global = pmm
     @unpack mode, modelname, typemom = estset
+
+    Nglo = length(sobolinds)
 
     onlyloc && onlyglo && throw(error("should do either local or global or both"))
 
     if !onlyloc
         # global stage: evaluates the objective at Sobol sequence points
         s = SobolSeq(lb_global, ub_global)
-        xg = [Sobol.next!(s) for i in 1:Nglo]
+        xg0 = [Sobol.next!(s) for i in 1:Nglo[end]]
+        xg = xg0[sobolinds]
 
         if cs.num_procs==1
             objg = fill(-1.0, Nglo)

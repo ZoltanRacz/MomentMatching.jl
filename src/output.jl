@@ -160,8 +160,8 @@ end
     layout := size(xx, 1)
 
     for k in axes(xx, 1)
-        mins = [minimum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
-        maxs = [maximum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
+        mins = [minimum(@view xx[k, 1:floor(Int, length(npmm.sobolinds) * percs[i])]) for i in 1:N]
+        maxs = [maximum(@view xx[k, 1:floor(Int, length(npmm.sobolinds) * percs[i])]) for i in 1:N]
         @series begin
             subplot := k
             title := labs[k]
