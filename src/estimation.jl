@@ -507,7 +507,7 @@ Add processes locally or on cluster.
 """
 function Distributed.addprocs(cs::ComputationSettings)
     exefl = ["--project", "--threads=$(cs.num_threads)"]
-    if cs.maxmem != 1
+    if cs.maxmem != -1
         push!(exefl,"--heap-size-hint=$(cs.maxmem)G")
     end
     if cs.location == "local"
