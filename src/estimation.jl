@@ -395,7 +395,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         momg_sort = [momg[:,i] for i in axes(momg,2)][permg]
         xg_sort = xg[permg]
 
-        if cs.num_procs>1
+        if cs.num_procs > 1 || cs.location == "slurm"
            @everywhere begin
                objg = nothing
                momg = nothing
@@ -471,7 +471,7 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
     xl_sort = [xl[:, i] for i in axes(xl, 2)][perml]
     conv_sort = conv[perml]
 
-    if cs.num_procs > 1
+    if cs.num_procs > 1 || cs.location == "slurm"
         @everywhere begin
             objl = nothing
             moml = nothing
