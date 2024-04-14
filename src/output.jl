@@ -152,7 +152,7 @@ end
 
     xx = hcat(xglo...)
 
-    m = npmm.Nglo^(1/N)
+    m = length(npmm.sobolinds)^(1/N)
     percs = [1 / m^(i - 1) for i in 1:N]
 
     legend := :none
