@@ -74,7 +74,7 @@ fsanity
 
 @userplot FSanity
 
-@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].xglo[1])))
+@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].pmm.momdat)))
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult)
         error("fsanity should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
