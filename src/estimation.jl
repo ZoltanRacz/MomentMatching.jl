@@ -357,15 +357,25 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         xg0 = [Sobol.next!(s) for i in 1:sobolinds[end]]
         xg = xg0[sobolinds]
 
+        prog = Progress(Nglo; desc="Performing global stage...")
+        chnl = RemoteChannel(() -> Channel{Bool}(), 1)
+
         if cs.num_procs==1 && cs.location == "local"
             objg = fill(-1.0, Nglo)
             momg = Array{Float64}(undef, length(pmm.momdat), Nglo)
             chunk_proc = 1:1:Nglo
-            if cs.num_tasks==1
-                singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
-            else
-                multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
-            end            
+            @sync begin
+                @async while take!(chnl)
+                    ProgressMeter.next!(prog)
+                end
+
+                if cs.num_tasks == 1
+                    singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc, chnl)
+                else
+                    multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc, chnl)
+                end
+                put!(chnl, false)
+            end
         else
             addprocs(cs)
             load_on_procs(estset.mode)
@@ -373,15 +383,22 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             objg = distribute(fill(-1.0, Nglo))
             momg = distribute(Array{Float64}(undef,length(pmm.momdat), Nglo), dist = [1,cs.num_procs])
 
-            @sync @distributed for i in eachindex(workers())
-                chunk_proc = localindices(objg)[1]
-                chunk_proc == localindices(momg)[2] || @error("non-conforming indices")
-                
-                if cs.num_tasks==1
-                    singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc)
-                else
-                    multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc)
+            @sync begin
+                @async while take!(chnl)
+                    ProgressMeter.next!(prog)
                 end
+
+                @sync @distributed for i in eachindex(workers())
+                    chunk_proc = localindices(objg)[1]
+                    chunk_proc == localindices(momg)[2] || @error("non-conforming indices")
+
+                    if cs.num_tasks == 1
+                        singlethread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, chunk_proc, chnl)
+                    else
+                        multithread_global!(objg, momg, estset, xg, pmm, aux, presh, errorcatching, cs, chunk_proc, chnl)
+                    end
+                end
+                put!(chnl, false)
             end
         end
 
@@ -422,16 +439,25 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
     end
 
     # local stage: applies local optimization algorithm to find optimum starting from best global points
+    prog = Progress(Nloc; desc="Performing local stage...")
+    chnl = RemoteChannel(() -> Channel{Bool}(), 1)
     if cs.num_procs==1 && cs.location == "local"
         objl = fill(-1.0, Nloc)
         moml = Array{Float64}(undef, length(pmm.momdat), Nloc)
         conv = Vector{Bool}(undef, Nloc)
         xl = Array{Float64}(undef, length(xlocstart[1]), Nloc)
         chunk_procl = 1:1:Nloc
-        if cs.num_tasks == 1
-            singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl)
-        else
-            multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl)
+        @sync begin
+            @async while take!(chnl)
+                ProgressMeter.next!(prog)
+            end
+
+            if cs.num_tasks == 1
+                singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl, chnl)
+            else
+                multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl, chnl)
+            end
+            put!(chnl, false)
         end
     else
         addprocs(cs)
@@ -442,20 +468,28 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
         conv = distribute(Vector{Bool}(undef,Nloc))
         xl = distribute(Array{Float64}(undef,length(xlocstart[1]), Nloc), dist = [1,cs.num_procs])
 
-        @sync @distributed for i in eachindex(workers())
-            chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
-
-            chunk_procl = localindices(objl)[1]
-            chunk_procl == localindices(moml)[2] || @error("non-conforming indices")
-            chunk_procl == localindices(conv)[1] || @error("non-conforming indices")
-            chunk_procl == localindices(xl)[2] || @error("non-conforming indices")
-
-            if cs.num_tasks == 1
-                singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl)
-            else
-                multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl)
+        @sync begin
+            @async while take!(chnl)
+                ProgressMeter.next!(prog)
             end
+
+            @sync @distributed for i in eachindex(workers())
+                chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
+
+                chunk_procl = localindices(objl)[1]
+                chunk_procl == localindices(moml)[2] || @error("non-conforming indices")
+                chunk_procl == localindices(conv)[1] || @error("non-conforming indices")
+                chunk_procl == localindices(xl)[2] || @error("non-conforming indices")
+
+                if cs.num_tasks == 1
+                    singlethread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, chunk_procl, chnl)
+                else
+                    multithread_local!(objl, xl, moml, conv, estset, npmm, pmm, aux, presh, xlocstart, errorcatching, cs, chunk_procl, chnl)
+                end
+            end
+            put!(chnl, false)
         end
+
     end
 
     objl = Array(objl)
@@ -523,11 +557,12 @@ $(TYPEDSIGNATURES)
 
 Performs the global stage on a single-thread.
 """
-function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_proc::AbstractVector)
+function singlethread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, chunk_proc::AbstractVector, chnl::RemoteChannel)
     momnormg = Vector{Float64}(undef, length(pmm.momdat))
     preal = PreallocatedContainers(estset, aux)
     for (locind, fullind) in enumerate(chunk_proc)
         localpart(objg)[locind] = objf!(view(localpart(momg),:,locind), momnormg, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
+        put!(chnl, true)
     end
 end
 
@@ -536,9 +571,8 @@ $(TYPEDSIGNATURES)
 
 Performs the global stage with multiple threads.
 """
-function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, cs::ComputationSettings, chunk_proc::AbstractVector)
+function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset::EstimationSetup, xg::AbstractVector, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, errorcatching::Bool, cs::ComputationSettings, chunk_proc::AbstractVector, chnl::RemoteChannel)
     chunks_th = chunks(chunk_proc; n = cs.num_tasks)
-    #prog = Progress(Nglo; desc="Performing global stage...")
     tasks = map(chunks_th) do chunk
         # Each chunk gets its own spawned task that does its own local, sequential work. every task is assigned to one thread.
 
@@ -551,14 +585,13 @@ function multithread_global!(objg::AbstractVector, momg::AbstractMatrix, estset:
             for n in eachindex(chunk) # do stuff for all index in chunk
                 fullind = chunk_proc[chunk[n]]
                 objg_ch[n] = objf!(view(momg_ch,:,n), momnormg_ch, estset, xg[fullind], pmm, aux, presh, preal, errorcatching)
-                #ProgressMeter.next!(prog)
+                put!(chnl, true)
             end
             # and then returns the result
             return objg_ch, momg_ch
         end
     end
     outstates = fetch.(tasks) # collect results from tasks
-    #finish!(prog)
 
     for (i, chunk) in enumerate(chunks_th) # organize results in final form
         localpart(objg)[chunk] = outstates[i][1]
@@ -571,12 +604,13 @@ $(TYPEDSIGNATURES)
 
 Performs the local stage on a single-thread.
 """
-function singlethread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector, errorcatching::Bool, chunk_procl::AbstractVector)
+function singlethread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector, errorcatching::Bool, chunk_procl::AbstractVector, chnl::RemoteChannel)
     momnorml = Vector{Float64}(undef, length(pmm.momdat))
     preal = PreallocatedContainers(estset, aux)
     for (locind, fullind) in enumerate(chunk_procl)
         opt_loc!(localpart(objl), localpart(xl), localpart(moml), momnorml, localpart(conv), npmm.local_opt_settings, estset, aux, presh, preal, pmm, xcands[fullind], locind, errorcatching)
         objf!(view(localpart(moml), :, locind), momnorml, estset, localpart(xl)[:, locind], pmm, aux, presh, preal, errorcatching)
+        put!(chnl, true)
     end
 end
 
@@ -585,9 +619,8 @@ $(TYPEDSIGNATURES)
 
 Performs the local stage with multiple threads.
 """
-function multithread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector,errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector)
+function multithread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::AbstractMatrix, conv::AbstractVector, estset::EstimationSetup, npmm::NumParMM, pmm::ParMM, aux::AuxiliaryParameters, presh::PredrawnShocks, xcands::AbstractVector, errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector, chnl::RemoteChannel)
     chunks_th = chunks(chunk_procl; n=cs.num_tasks)
-    #prog = Progress(Nloc; desc="Performing local stage...")
     tasks = map(chunks_th) do chunk
         Threads.@spawn begin
             objl_ch = Vector{Float64}(undef, length(chunk))
@@ -600,13 +633,13 @@ function multithread_local!(objl::AbstractVector, xl::AbstractMatrix, moml::Abst
                 fullind = chunk_procl[chunk[n]]
                 opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, conv_ch, npmm.local_opt_settings, estset, aux, presh, preal, pmm, xcands[fullind], n, errorcatching)
                 objf!(view(moml_ch, :,n), momnorml_ch, estset, xl_ch[:, n], pmm, aux, presh, preal, errorcatching)
-                #ProgressMeter.next!(prog)
+                put!(chnl, true)
             end
             return objl_ch, xl_ch, moml_ch, conv_ch
         end
     end
     outstates = fetch.(tasks)
-    #finish!(prog)
+
     for (i, chunk) in enumerate(chunks_th)
         localpart(objl)[chunk] = outstates[i][1]
         localpart(xl)[:,chunk] = outstates[i][2]
