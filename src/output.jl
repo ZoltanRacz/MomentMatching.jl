@@ -74,7 +74,7 @@ fsanity
 
 @userplot FSanity
 
-@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].xglo[1])))
+@recipe function f(h::FSanity; glob=h.args[2].npmm.onlyglo, firstN=1000, ylimss=fill(:none, 1 + length(h.args[2].pmm.momdat)))
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult)
         error("fsanity should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
@@ -139,7 +139,7 @@ end
 
 @userplot FGlobounds
 
-@recipe function f(h::FGlobounds)
+@recipe function f(h::FGlobounds; N = 20)
     if length(h.args) != 2 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult)
         error("fglobounds should be given two inputs: an EstimationSetup and an EstimationResult. Got: $(typeof(h.args))")
@@ -152,16 +152,16 @@ end
 
     xx = hcat(xglo...)
 
-    N = 10
-    percs = [1 / 5^(i - 1) for i in 1:N]
+    m = length(npmm.sobolinds)^(1/N)
+    percs = [1 / m^(i - 1) for i in 1:N]
 
     legend := :none
     merge!(plotattributes, fonts())
     layout := size(xx, 1)
 
     for k in axes(xx, 1)
-        mins = [minimum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
-        maxs = [maximum(@view xx[k, 1:floor(Int, npmm.Nglo * percs[i])]) for i in 1:N]
+        mins = [minimum(@view xx[k, 1:floor(Int, length(npmm.sobolinds) * percs[i])]) for i in 1:N]
+        maxs = [maximum(@view xx[k, 1:floor(Int, length(npmm.sobolinds) * percs[i])]) for i in 1:N]
         @series begin
             subplot := k
             title := labs[k]
@@ -273,16 +273,18 @@ Compares model-generated moments with data in a table.
 - estset: Instance of EstimationSetup. See separate documentation [`EstimationSetup`](@ref).
 - mmsolu: Instance of EstimationResult. See separate documentation [`EstimationResult`](@ref).
 """
-function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult, which_point::Integer)
+function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult, which_point::Integer, glob::Bool)
     @unpack mode, typemom = estset
-    @unpack momloc, npmm = mmsolu
+    @unpack momloc, momglo, npmm = mmsolu
 
     momsdata = datamoments(mode, typemom) # moment from data to match
 
     df = momentnames(mode, typemom)
 
     df[:, :("Sample values")] = round.(momsdata[:, which_point], digits=3)
-    df[:, :("Model values")] = round.(momloc[which_point], digits=3)
+
+    glob ? momsmod = momglo : momsmod = momloc
+    df[:, :("Model values")] = round.(momsmod[which_point], digits=3)
 
     return df
 end
@@ -299,11 +301,11 @@ Compares model-generated moments with data in a table and optionally saves outpu
 # Optional arguments
 - saving: Logical, true if output has to be saved.
 """
-function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult; saving::Bool=false, filename_suffix::String="")
+function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=mmsolu.npmm.onlyglo, saving::Bool = false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
 
-    df = tablemoms_inner(estset, mmsolu, 1)
+    df = tablemoms_inner(estset, mmsolu, 1, glob)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tablemoms.csv", df)
 
@@ -325,12 +327,12 @@ Compares model-generated moments with data in a table and optionally saves outpu
 # Optional arguments
 - saving: Logical, true if output has to be saved.
 """
-function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; dgt::Int64=3, saving::Bool=false, filename_suffix::String="")
+function tablemoms(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool = false, filename_suffix::String="")
     @unpack mode, modelname = estset
     @unpack npmm = mmsolu
     @unpack moms, W = boot
 
-    df = tablemoms_inner(estset, mmsolu, 1)
+    df = tablemoms_inner(estset, mmsolu, 1, glob)
 
     df[:, :("Simulated standard errors")] = round.(sqrt.(diag(Omega_boots(moms))), digits=dgt)
     df[:, :("Efficient weights (approx)")] = round.(diag(W), digits=dgt)
@@ -351,16 +353,15 @@ fmoms
 
 @userplot FMoms
 
-@recipe function f(h::FMoms; which_point = 1)
+@recipe function f(h::FMoms; which_point=1, glob::Bool=h.args[2].npmm.onlyglo)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult) ||
        !(h.args[3] isa Integer)
         error("fmoms should be given three inputs: an EstimationSetup, an EstimationResult and an Integer. Got: $(typeof(h.args))")
     end
     estset, mmsolu, ff = h.args
-    @unpack momloc, npmm = mmsolu
 
-    df = tablemoms_inner(estset, mmsolu, which_point)
+    df = tablemoms_inner(estset, mmsolu, which_point, glob)
 
     if ncol(df) == 3
         insertcols!(df, 1, :empty => "Moments")
@@ -410,9 +411,9 @@ fmoms
 end
 
 
-function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point = 1, display_all = true)
+function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point=1, glob::Bool=mmsolu.npmm.onlyglo, display_all = true)
 
-    df = tablemoms_inner(estset, mmsolu, which_point)
+    df = tablemoms_inner(estset, mmsolu, which_point, glob)
     if ncol(df) == 3
         insertcols!(df, 1, :empty => "Moments")
     end
@@ -420,11 +421,11 @@ function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point = 
 
     if display_all
         for i in eachindex(titles)
-            display(fmoms(estset, mmsolu, i; which_point))
+            display(fmoms(estset, mmsolu, i; which_point, glob))
         end
     end
 
-    return [fmoms(estset, mmsolu, i; which_point) for i in eachindex(titles)]
+    return [fmoms(estset, mmsolu, i; which_point, glob) for i in eachindex(titles)]
 end
 
 """
