@@ -474,7 +474,6 @@ function matchmom(estset::EstimationSetup, pmm::ParMM, npmm::NumParMM, cs::Compu
             end
 
             @sync @distributed for i in eachindex(workers())
-                chunk_procl = getchunk(1:Nloc, i; n=cs.num_procs)
 
                 chunk_procl = localindices(objl)[1]
                 chunk_procl == localindices(moml)[2] || @error("non-conforming indices")
