@@ -1,11 +1,15 @@
 name = "MomentMatching"
 uuid = "a67aff5b-0ccc-47d5-9c4f-fef2ba9c9aa3"
 authors = ["Gualtiero Azzalini", "Zoltán Rácz"]
-version = "0.2.4"
+version = "0.3.0"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+ChunkSplitters = "ae650224-84b6-46f8-82ea-d812ca08434e"
+ClusterManagers = "34f1f09b-3a8b-5176-ab39-66d58a4d544e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+DistributedArrays = "aaf54ef3-cdf8-58ed-94cc-d582ad619b94"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

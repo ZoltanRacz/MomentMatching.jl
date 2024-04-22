@@ -17,6 +17,10 @@ using Optim # For defining default settings for local optimization. Should think
 using Optimization # For local phase of estimation
 using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
+using Distributed # For multiprocessing
+using ClusterManagers # For multiprocessing on computer clusters
+using ChunkSplitters # For easy split of work in chunks
+using DistributedArrays # For using arrays defined in all processes
 
 # exported types and functions
 export estimation, # main functions
@@ -34,6 +38,7 @@ export estimation, # main functions
        default_weight_matrix,
        ftypemom,
        indexvector,
+       load_on_procs,
        mdiff,
        momentnames,
        obj_mom,
@@ -42,6 +47,7 @@ export estimation, # main functions
        # from estimation.jl:
        # other objects which must be directly available for the user
        BootstrapResult,
+       ComputationSettings,
        EmptyPredrawnShocks,
        estimation_name,
        estimation_result_path,
