@@ -497,6 +497,48 @@ fbootstrap
     end
 end
 
+
+
+@userplot FLocalorder
+
+@recipe function f(h::FLocalorder)
+    if length(h.args) != 4 || !(h.args[1] isa AbstractVector) ||
+       !(h.args[2] isa AbstractVector)|| !(h.args[3] isa AbstractVector) ||
+       !(h.args[4] isa AbstractVector)
+        error("flocalorder should be given two vectors as inputs, corresponding to xglo and xlocstart. Got: $(typeof(h.args))")
+    end
+    xglo, xlocstart, fglo, floc = h.args
+
+    len = length(xlocstart)
+
+    ord_glo = fill(0,len)
+
+    for i in eachindex(ord_glo)
+        ord_glo[i] = findfirst(y -> y == xglo[i],xlocstart) 
+        # if ord_glo[i] = k, then the kth local point corresponds to the ith global point
+    end
+
+    println(ord_glo)
+
+    merge!(plotattributes, fonts())
+
+    @series begin
+        legend := :none
+        xlabel := "Objective function value in global phase"
+        ylabel := "Objective function value  in local phase"
+        seriestype := :scatter
+        fglo[ord_glo], floc
+    end
+end
+
+function flocalorder(estres::EstimationResult)
+    return flocalorder(estres.xglo, estres.xlocstart, estres.fglo, estres.floc)
+end
+
+function flocalorder(globalres::EstimationResult,localres::EstimationResult)
+    return flocalorder(globalres.xglo, localres.xlocstart, globalres.fglo, localres.floc)
+end
+
 """
 $(TYPEDSIGNATURES)
 

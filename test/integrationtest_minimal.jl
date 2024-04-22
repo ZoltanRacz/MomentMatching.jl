@@ -1,6 +1,6 @@
 # useful lines for testing manually, while developing. Install TestEnv in your main environment. When running the first time, activate and instantiate the test environment before restarting Julia and using TestEnv. For more info check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
-#using TestEnv
-#TestEnv.activate()
+using TestEnv
+TestEnv.activate()
 using MomentMatching, Test, Plots, OptimizationOptimJL
 
 include("examples/minimalAR1.jl")
@@ -52,3 +52,5 @@ fmoms(setup, est_1st, display_all = false)
 fmoms(setup, est_1st, which_point = 2)
 
 @test fbootstrap(setup, est_1st, boot_1st) broken=true
+
+flocalorder(est_1st)
