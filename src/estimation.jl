@@ -865,6 +865,104 @@ function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParam
     return est_1st, boot_1st, est_2st, boot_2st
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from different global estimations. Uses aux, presh, pmm from first model.
+"""
+
+function mergeglo(estset::EstimationSetup, models::Array{EstimationResults,1}; saving::Bool=true, filename_suffix::String="")
+    objg = models[1].fglo
+    xg = models[1].xglo
+    momg = models[1].momglo
+
+    for i in eachindex(models)
+        append!(objg, models[i].fglo)
+        append!(xg, models[i].xglo)
+        append!(momg, models[i].momglo)
+    end
+
+    permg = sortperm(objg)
+    objg_sort = objg[permg]
+    xg_sort = xg[permg]
+    momg_sort = momg[permg]
+
+    npmm = NumParMM(1:length(objg_sort), models[1].npmm.Nloc, models[1].npmm.full_lb_global, models[1].npmm.full_ub_global, models[1].npmm.onlyglo, models[1].npmm.onlyloc, models[1].npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, models[1].aux, models[1].presh, models[1].xlocstart, models[1].pmm,
+        objg_sort, xg_sort, momg_sort,
+        [0.0], [[0.0]], [[0.0]], [false])
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from different local estimations.
+Uses aux, presh, pmm from first model.
+"""
+
+function mergeloc(estset::EstimationSetup, models::Array{EstimationResults,1}; saving::Bool=true, filename_suffix::String="")
+    objl = models[1].floc
+    xl = models[1].xloc
+    moml = models[1].momloc
+    xlocstartl = models[1].xlocstart
+    convl = models[1].conv
+
+    for i in eachindex(models)
+        append!(objl, models[i].floc)
+        append!(xl, models[i].xloc)
+        append!(moml, models[i].momloc)
+        append!(xlocstartl, models[i].xlocstart)
+        append!(convl, models[i].conv)
+    end
+
+    perml = sortperm(objl)
+    objl_sort = objl[perml]
+    xl_sort = xl[perml]
+    moml_sort = moml[perml]
+    xlocstartl_sort = xlocstartl[perml]
+    convl_sort = convl[perml]
+
+    if models[1].npmm.onlyloc
+        objg_sort = [-1.0]
+        xg_sort = [[1.0]]
+        momg_sort = [[1.0]]
+    end
+
+    npmm = NumParMM(models[1].npmm.sobolinds, length(objl_sort), models[1].npmm.full_lb_global, models[1].npmm.full_ub_global, models[1].npmm.onlyglo, models[1].npmm.onlyloc, models[1].npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, models[1].aux, models[1].presh, xlocstartl_sort, models[1].pmm,
+        objg_sort, xg_sort, momg_sort,
+        objl_sort, xl_sort, moml_sort, convl_sort)
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from global and local estimations. Assumes inputs are ordered and uses aux, presh, pmm from local.
+"""
+
+function mergegloloc(estset::EstimationSetup, modelglo::EstimationResults, modelloc::EstimationResults; saving::Bool=true, filename_suffix::String="")
+
+    npmm = NumParMM(modelglo.npmm.sobolinds, modelloc.npmm.Nloc, modelglo.npmm.full_lb_global, modelglo.npmm.full_ub_global, false, false, modelloc.npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, modelloc.aux, modelloc.presh, modelloc.xlocstart, modelloc.pmm,
+        modelglo.fglo, modelglo.xglo, modelglo.momglo,
+        modelloc.floc, modelloc.xloc, modelloc.momloc, modelloc.conv)
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
 macro maythread(body)
     esc(:(
         if $(@__MODULE__).threading_inside()
