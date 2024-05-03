@@ -871,7 +871,7 @@ $(TYPEDSIGNATURES)
 Merges results from different global estimations. Uses aux, presh, pmm from first model.
 """
 
-function mergeglo(estset::EstimationSetup, models::Array{EstimationResults,1}; saving::Bool=true, filename_suffix::String="")
+function mergeglo(estset::EstimationSetup, models::Array{EstimationResult,1}; saving::Bool=true, filename_suffix::String="")
     objg = models[1].fglo
     xg = models[1].xglo
     momg = models[1].momglo
@@ -905,7 +905,7 @@ Merges results from different local estimations.
 Uses aux, presh, pmm from first model.
 """
 
-function mergeloc(estset::EstimationSetup, models::Array{EstimationResults,1}; saving::Bool=true, filename_suffix::String="")
+function mergeloc(estset::EstimationSetup, models::Array{EstimationResult,1}; saving::Bool=true, filename_suffix::String="")
     objl = models[1].floc
     xl = models[1].xloc
     moml = models[1].momloc
@@ -950,7 +950,7 @@ $(TYPEDSIGNATURES)
 Merges results from global and local estimations. Assumes inputs are ordered and uses aux, presh, pmm from local.
 """
 
-function mergegloloc(estset::EstimationSetup, modelglo::EstimationResults, modelloc::EstimationResults; saving::Bool=true, filename_suffix::String="")
+function mergegloloc(estset::EstimationSetup, modelglo::EstimationResult, modelloc::EstimationResult; saving::Bool=true, filename_suffix::String="")
 
     npmm = NumParMM(modelglo.npmm.sobolinds, modelloc.npmm.Nloc, modelglo.npmm.full_lb_global, modelglo.npmm.full_ub_global, false, false, modelloc.npmm.local_opt_settings)
 
