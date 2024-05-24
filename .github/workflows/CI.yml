@@ -16,16 +16,16 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
-      contents: read
+    #timeout-minutes: 60
+    #permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
+    #  actions: write
+    #  contents: read
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.7'
-          - '1.10'
+          - '1.7' # earliest version that should be compatible
+          - '1' # latest version
           - 'nightly'
         os:
           - ubuntu-latest
@@ -39,7 +39,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v4
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: codecov/codecov-action@v4
