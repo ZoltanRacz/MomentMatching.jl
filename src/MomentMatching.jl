@@ -13,7 +13,7 @@ using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation. Should we use it in the end?
 using CSV # For saving tables as output
 using DataFrames # For dealing with tables
-using Optim # For defining default settings for local optimization. Should think about how to avoid it.
+using OptimizationOptimJL # For defining default settings for local optimization. Should think about how to avoid it.
 using Optimization # For local phase of estimation
 using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
