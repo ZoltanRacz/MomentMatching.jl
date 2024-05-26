@@ -114,9 +114,11 @@ if results vary a lot with different seeds, it is recommended to restart the who
 function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer)
     @unpack mode, modelname, typemom = estset
     @unpack aux, xloc, npmm = mmsolu
+    mmsolu.npmm.onlyglo && throw(ArgumentError("Should be applied to result of a local estimation"))
     bestx = xloc[1]
     momleng = length(mmsolu.pmm.momdat)
 
+    # simulate data N_sample times using the estimated parameters, and save resulting alternative moments
     moms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nsamplesim]
     momnorms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nsamplesim]
     prealc = PreallocatedContainers(estset, auxmomsim)
@@ -124,12 +126,7 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
         obj_mom!(moms[sample_i], momnorms[sample_i], mode, bestx, modelname, typemom, auxmomsim, PredrawnShocks(estset, auxmomsim), prealc)
     end
 
-    if mmsolu.npmm.onlyglo == true
-        momsresc = mmsolu.momglo[1]
-    else
-        momsresc = mmsolu.momloc[1]
-    end
-
+    # recenter estimation around originially estimated moments (refer to formula in eventual doc)
     mdifrec = mdiff(mode, momsresc, mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
 
     mms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
