@@ -353,7 +353,7 @@ fmoms
 
 @userplot FMoms
 
-@recipe function f(h::FMoms; which_point=1, glob::Bool=h.args[2].npmm.onlyglo)
+@recipe function f(h::FMoms; which_point=1, glob=h.args[2].npmm.onlyglo)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult) ||
        !(h.args[3] isa Integer)
