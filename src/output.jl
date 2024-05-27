@@ -518,8 +518,6 @@ end
         # if ord_glo[i] = k, then the kth local point corresponds to the ith global point
     end
 
-    println(ord_glo)
-
     merge!(plotattributes, fonts())
 
     @series begin
