@@ -1,8 +1,7 @@
 # useful lines for testing manually, while developing. Install TestEnv in your main environment. When running the first time, activate and instantiate the test environment before restarting Julia and using TestEnv. For more info check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
 #using TestEnv
 #TestEnv.activate()
-using MomentMatching, Test
-using OptimizationOptimJL
+using MomentMatching, Test, OptimizationOptimJL
 include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")

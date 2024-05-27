@@ -1,5 +1,5 @@
-using StatsBase, DataFrames
-using MomentMatching, Distributed, OptimizationOptimJL # so that include line uses these packages in load_on_procs
+using Statistics, DataFrames
+using MomentMatching, Distributed # so that include line uses these packages in load_on_procs
 
 struct AR1Estimation <: EstimationMode
     "mode-dependent prefix of filenames used for saving estimation results"

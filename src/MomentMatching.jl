@@ -6,14 +6,13 @@ module MomentMatching
 using RecipesBase # to write code for figures
 
 using LinearAlgebra: diagm, tr, norm, cond, diag
-#using Statistics # let's try if we get away with commenting this out. StatsBase is bigger and calls many functions from Statistics anyways.
-using StatsBase: mean, var, cov, quantile
+using Statistics: mean, var, cov, quantile
 using JLD # For saving results. We should consider alternatives due to compatibility issues
 using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation. Should we use it in the end?
 using CSV # For saving tables as output
 using DataFrames # For dealing with tables
-using Optim # For defining default settings for local optimization. Should think about how to avoid it.
+using OptimizationOptimJL # For defining default settings for local optimization. Should think about how to avoid it.
 using Optimization # For local phase of estimation
 using Sobol # For global phase of estimation
 using ProgressMeter # For showing progress while running long computations
