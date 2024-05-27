@@ -111,11 +111,12 @@ The resulting distribution of estimated parameters gives us the bootstrap confid
 For diagnostic reasons, we repeat this procedure with Nseeds number of seeds, 
 if results vary a lot with different seeds, it is recommended to restart the whole estimation with bigger simulation parameters.
 """
-function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer)
+function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, cs::ComputationSettings, errorcatching::Bool)
     @unpack mode, modelname, typemom = estset
     @unpack aux, xloc, npmm = mmsolu
     mmsolu.npmm.onlyglo && throw(ArgumentError("Should be applied to result of a local estimation"))
     bestx = xloc[1]
+    xlocstart = fill(bestx,Nseeds * Nsamplesim)
     momleng = length(mmsolu.pmm.momdat)
 
     # simulate data N_sample times using the estimated parameters, and save resulting alternative moments
@@ -127,50 +128,125 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
     end
 
     # recenter estimation around originially estimated moments (refer to formula in eventual doc)
-    mdifrec = mdiff(mode, momsresc, mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
+    mdifrec = mdiff(mode, mmsolu.momloc[1], mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
 
-    mms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
+    pmms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
 
     presh_repeat = [PredrawnShocks(estset, aux) for seed_i in 1:Nseeds] # Nseeds different aux structure for each alternative moment
 
-    prog = Progress(Nsamplesim * Nseeds; desc="Bootstrapping...", color=:blue)
+    @assert(!threading_inside() || cs.num_tasks==1)
 
-    xs = Array{Float64}(undef, length(mmsolu.xloc[1]), Nseeds, Nsamplesim)
-    chunks = getchunks(Nsamplesim * Nseeds)
-
-    @assert(!threading_inside())
-
-    tasks = map(chunks) do chunk
-        Threads.@spawn begin
-            x_ch = [Vector{Float64}(undef, length(mmsolu.xloc[1])) for _ in 1:length(chunk)]
-            preal = PreallocatedContainers(estset, aux)
-            for n in eachindex(chunk)
-                fullind = chunk[n]
-                seed_i = CartesianIndices((Nseeds, Nsamplesim))[fullind][1]
-                sample_i = CartesianIndices((Nseeds, Nsamplesim))[fullind][2]
-                x = [[1.0]]
-
-                opt_loc!([1.0], x, [Vector{Float64}(undef, momleng)], [Vector{Float64}(undef, momleng)], [false], npmm.local_opt_settings, estset, aux, presh_repeat[seed_i], preal, mms[sample_i], bestx, 1, false)
-
-                x_ch[n] = x[1]
+    prog = Progress(Nseeds * Nsamplesim; desc="Performing bootstrap...", color = :blue)
+    chnl = RemoteChannel(() -> Channel{Bool}(), 1)
+    if cs.num_procs==1 && cs.location == "local"
+        xl = Array{Float64}(undef, length(xlocstart[1]), Nseeds * Nsamplesim)
+        chunk_procl = 1:1:(Nseeds * Nsamplesim)
+        @sync begin
+            @async while take!(chnl)
                 ProgressMeter.next!(prog)
             end
-            return x_ch
+
+            if cs.num_tasks == 1
+                singlethread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, chunk_procl, chnl)
+            else
+                multithread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, cs, chunk_procl, chnl)
+            end
+            put!(chnl, false)
+        end
+    else
+        addprocs(cs)
+        load_on_procs(estset.mode)
+
+        xl = distribute(Array{Float64}(undef,length(xlocstart[1]), Nseeds * Nsamplesim), dist = [1,cs.num_procs])
+
+        @sync begin
+            @async while take!(chnl)
+                ProgressMeter.next!(prog)
+            end
+
+            @sync @distributed for i in eachindex(workers())
+
+                chunk_procl = localindices(xl)[2]
+
+                if cs.num_tasks == 1
+                    singlethread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, chunk_procl, chnl)
+                else
+                    multithread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, cs, chunk_procl, chnl)
+                end
+            end
+            put!(chnl, false)
+        end
+
+    end
+
+    xl = reshape(Array(xl),length(mmsolu.xloc[1]), Nseeds, Nsamplesim)
+    
+    if cs.num_procs > 1 || cs.location == "slurm"
+        rmprocs(workers())
+    end
+
+    return xl, hcat(moms...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the local stage on a single-thread.
+
+Used for bootstrapping
+"""
+function singlethread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, preshs::Vector{W}, xcands::AbstractVector, errorcatching::Bool, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM, W<:PredrawnShocks}
+    objl = Vector{Float64}(undef, length(chunk_procl))
+    convl = Vector{Bool}(undef, length(chunk_procl))
+    moml = Matrix{Float64}(undef, length(pmms[1].momdat),length(chunk_procl))
+    momnorml = Vector{Float64}(undef, length(pmms[1].momdat))
+    preal = PreallocatedContainers(estset, aux)
+    Nseeds = length(preshs) 
+    Nsamplesim = length(pmms) 
+    cind = CartesianIndices((Nseeds, Nsamplesim))
+    for (locind, fullind) in enumerate(chunk_procl)
+        seed_i = cind[fullind][1]
+        sample_i = cind[fullind][2]
+
+        opt_loc!(objl, localpart(xl), moml, momnorml, convl, npmm.local_opt_settings, estset, aux, preshs[seed_i], preal, pmms[sample_i], xcands[fullind], locind, errorcatching)
+        put!(chnl, true)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Performs the local stage with multiple threads.
+"""
+function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, preshs::Vector{W}, xcands::AbstractVector, errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM, W<:PredrawnShocks}
+    Nseeds = length(preshs) 
+    Nsamplesim = length(pmms) 
+    cind = CartesianIndices((Nseeds, Nsamplesim))
+    chunks_th = chunks(chunk_procl; n=cs.num_tasks)
+    tasks = map(chunks_th) do chunk
+        Threads.@spawn begin
+            objl_ch = Vector{Float64}(undef, length(chunk))
+            convl_ch = Vector{Bool}(undef, length(chunk))
+            xl_ch = Array{Float64}(undef, size(xl,1), length(chunk))
+            moml_ch = Matrix{Float64}(undef, length(pmms[1].momdat),length(chunk))
+            momnorml_ch = Vector{Float64}(undef, length(pmms[1].momdat))
+            preal = PreallocatedContainers(estset, aux)
+            for n in eachindex(chunk)
+                fullind = chunk_procl[chunk[n]]
+                seed_i = cind[fullind][1]
+                sample_i = cind[fullind][2]
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, convl_ch, npmm.local_opt_settings, estset, aux, preshs[seed_i], preal, pmms[sample_i], xcands[fullind], n, errorcatching)
+
+                put!(chnl, true)
+            end
+            return xl_ch
         end
     end
     outstates = fetch.(tasks)
-    finish!(prog)
 
-    for (i, chunk) in enumerate(chunks)
-        for n in eachindex(chunk)
-            fullind = chunk[n]
-            seed_i = CartesianIndices((Nseeds, Nsamplesim))[fullind][1]
-            sample_i = CartesianIndices((Nseeds, Nsamplesim))[fullind][2]
-            xs[:, seed_i, sample_i] = outstates[i][n]
-        end
+    for (i, chunk) in enumerate(chunks_th)
+        localpart(xl)[:,chunk] = outstates[i]
     end
-
-    return xs, hcat(moms...)
 end
 
 """
@@ -287,10 +363,10 @@ Performs bootstrap and computes related quantities.
 - saving: Logical, true if results are to be saved.
 - filename_suffix: String with suffix to be used for file name when saving.
 """
-function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; saving::Bool=false, filename_suffix::String="")
+function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; cs::ComputationSettings = ComputationSettings(), saving::Bool=false, filename_suffix::String="", errorcatching::Bool = true)
     @unpack mode, modelname, typemom = estset
     @unpack npmm = mmsolu
-    xs, moms = param_bootstrap(estset, mmsolu, auxmomsim, Nseeds, Nsamplesim)
+    xs, moms = param_bootstrap(estset, mmsolu, auxmomsim, Nseeds, Nsamplesim, cs, errorcatching)
     sm = sandwich_matrix(estset, mmsolu, moms)
     W = efficient_Wmat(moms)
     bootres = BootstrapResult(moms, xs, sqrt.(diag(sm) / Ndata), W)
