@@ -421,7 +421,7 @@ function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point=1,
 
     if display_all
         for i in eachindex(titles)
-            display(fmoms(estset, mmsolu, i; which_point, glob))
+            display(fmoms(estset, mmsolu, i; which_point, glob, title = titles[i]))
         end
     end
 
