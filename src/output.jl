@@ -469,10 +469,10 @@ fbootstrap
 
         subplot := k
         legend := :none
+        title := labs[k]
 
         @series begin
-            seriestype := :histogram
-            title := labs[k]
+            seriestype := :histogram            
             xdist_trimmed
         end
 
