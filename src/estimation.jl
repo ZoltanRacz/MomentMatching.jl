@@ -887,8 +887,8 @@ function mergeglo(estset::EstimationSetup, results::Vector{EstimationResult}; sa
     xg_sort = xg[permg]
     momg_sort = momg[permg]
 
-    minim = minimum([first(res.npmm.soboinds) for res in results])
-    maxim = maximum([last(res.npmm.soboinds) for res in results])
+    minim = minimum([first(res.npmm.sobolinds) for res in results])
+    maxim = maximum([last(res.npmm.sobolinds) for res in results])
 
     length(permg) == maxim - minim + 1 || throw(ArgumentError("Sobolinds cannot be defined with current inputs"))
 
