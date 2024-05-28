@@ -865,6 +865,109 @@ function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParam
     return est_1st, boot_1st, est_2st, boot_2st
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from different global estimations. Uses aux, presh, pmm from first result.
+"""
+function mergeglo(estset::EstimationSetup, results::Vector{EstimationResult}; saving::Bool=true, filename_suffix::String="")
+    all([res.onlyglo for res in results]) || throw(ArgumentError("should be used to merge global results only"))
+    objg = results[1].fglo
+    xg = results[1].xglo
+    momg = results[1].momglo
+
+    for i in eachindex(results)
+        append!(objg, results[i].fglo)
+        append!(xg, results[i].xglo)
+        append!(momg, results[i].momglo)
+    end
+
+    permg = sortperm(objg)
+    objg_sort = objg[permg]
+    xg_sort = xg[permg]
+    momg_sort = momg[permg]
+
+    minim = minimum([first(res.npmm.sobolinds) for res in results])
+    maxim = maximum([last(res.npmm.sobolinds) for res in results])
+
+    length(permg) == maxim - minim + 1 || throw(ArgumentError("Sobolinds cannot be defined with current inputs"))
+
+    npmm = NumParMM(minim:maxim, results[1].npmm.Nloc, results[1].npmm.full_lb_global, results[1].npmm.full_ub_global, true, false, results[1].npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, results[1].aux, results[1].presh, results[1].xlocstart, results[1].pmm,
+        objg_sort, xg_sort, momg_sort,
+        [0.0], [[0.0]], [[0.0]], [false])
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from different local estimations.
+Uses aux, presh, pmm and global results from first result.
+"""
+function mergeloc(estset::EstimationSetup, results::Vector{EstimationResult}; saving::Bool=true, filename_suffix::String="")
+    for i in 2:length(results)
+        results[1].objg == results[i].objg || throw(ArgumentError("global part of given inputs are different"))
+        results[1].xg == results[i].xg || throw(ArgumentError("global part of given inputs are different"))
+        results[1].momg == results[i].momg || throw(ArgumentError("global part of given inputs are different"))
+    end
+
+    objl = results[1].floc
+    xl = results[1].xloc
+    moml = results[1].momloc
+    xlocstartl = results[1].xlocstart
+    convl = results[1].conv
+
+    for i in eachindex(results)
+        append!(objl, results[i].floc)
+        append!(xl, results[i].xloc)
+        append!(moml, results[i].momloc)
+        append!(xlocstartl, results[i].xlocstart)
+        append!(convl, results[i].conv)
+    end
+
+    perml = sortperm(objl)
+    objl_sort = objl[perml]
+    xl_sort = xl[perml]
+    moml_sort = moml[perml]
+    xlocstartl_sort = xlocstartl[perml]
+    convl_sort = convl[perml]
+
+    npmm = NumParMM(results[1].npmm.sobolinds, length(objl_sort), results[1].npmm.full_lb_global, results[1].npmm.full_ub_global, false, results[1].npmm.onlyloc, results[1].npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, results[1].aux, results[1].presh, xlocstartl_sort, results[1].pmm,
+        results[1].objg, results[1].xg, results[1].momg,
+        objl_sort, xl_sort, moml_sort, convl_sort)
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Merges results from global and local estimations. Assumes inputs are ordered and uses aux, presh, pmm from local.
+"""
+function mergegloloc(estset::EstimationSetup, resultglo::EstimationResult, resultloc::EstimationResult; saving::Bool=true, filename_suffix::String="")
+
+    (resultglo.npmm.onlyglo && resultloc.npmm.onlyloc) || throw(ArgumentError("should be given a global and a local result"))
+
+    npmm = NumParMM(resultglo.npmm.sobolinds, resultloc.npmm.Nloc, resultglo.npmm.full_lb_global, resultglo.npmm.full_ub_global, false, false, resultloc.npmm.local_opt_settings)
+
+    mmsolu = EstimationResult(npmm, resultloc.aux, resultloc.presh, resultloc.xlocstart, resultloc.pmm,
+        resultglo.fglo, resultglo.xglo, resultglo.momglo,
+        resultloc.floc, resultloc.xloc, resultloc.momloc, resultloc.conv)
+
+    saving && save_estimation(estset, npmm, mmsolu, filename_suffix)
+
+    return mmsolu
+end
+
 macro maythread(body)
     esc(:(
         if $(@__MODULE__).threading_inside()

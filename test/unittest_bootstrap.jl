@@ -1,7 +1,8 @@
 # useful lines for testing manually, while developing. Install TestEnv in your main environment. When running the first time, activate and instantiate the test environment before restarting Julia and using TestEnv. For more info check: https://github.com/JuliaTesting/TestEnv.jl/blob/main/README.md
 #using TestEnv
 #TestEnv.activate()
-using MomentMatching, Test, OptimizationOptimJL
+using MomentMatching, Test
+using OptimizationOptimJL
 include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
@@ -22,21 +23,33 @@ aux = AuxiliaryParameters(AR1Estimation("ar1estim"), "")
 presh = PredrawnShocks(AR1Estimation("ar1estim"), "", "", aux) 
 
 cs_11 = ComputationSettings(num_procs = 1, num_tasks = 1)
-est_11 = estimation(setup; npmm, presh, xlocstart, cs = cs_11, saving=false)
-@test est_11 isa EstimationResult
+est = estimation(setup; npmm, presh, xlocstart, cs = cs_11, saving=false)
+
+Tdis = 20
+Ndata = 500
+Tdata = 40
+Nsample = 4
+Nseed = 4
+auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
+
+boot_11 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs = cs_11)
+@test boot_11 isa BootstrapResult
 
 cs_14 = ComputationSettings(num_procs = 1, num_tasks = 4)
-est_14 = estimation(setup; npmm, presh, xlocstart, cs = cs_14, saving=false)
-@test est_14 isa EstimationResult
+boot_14 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs = cs_14)
+@test boot_14 isa BootstrapResult
 
 cs_31 = ComputationSettings(num_procs = 3, num_tasks = 1)
-est_31 = estimation(setup; npmm, presh, xlocstart, cs = cs_31, saving=false)
-@test est_31 isa EstimationResult
+boot_31 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs = cs_31)
+@test boot_31 isa BootstrapResult
 
 cs_34 = ComputationSettings(num_procs = 3, num_tasks = 4)
-est_34 = estimation(setup; npmm, presh, xlocstart, cs = cs_34, saving=false)
-@test est_34 isa EstimationResult
+boot_34 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs = cs_34)
+@test boot_34 isa BootstrapResult
 
-@test est_11.floc == est_14.floc && est_11.xloc == est_14.xloc && est_11.momloc == est_14.momloc
-@test est_11.floc == est_31.floc && est_11.xloc == est_31.xloc && est_11.momloc == est_31.momloc
-@test est_11.floc == est_34.floc && est_11.xloc == est_34.xloc && est_11.momloc == est_34.momloc 
+
+using Plots
+fbootstrap(setup, est, boot_11)
+fbootstrap(setup, est, boot_14)
+fbootstrap(setup, est, boot_31)
+fbootstrap(setup, est, boot_34)

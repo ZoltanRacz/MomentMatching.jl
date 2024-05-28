@@ -353,7 +353,7 @@ fmoms
 
 @userplot FMoms
 
-@recipe function f(h::FMoms; which_point=1, glob::Bool=h.args[2].npmm.onlyglo)
+@recipe function f(h::FMoms; which_point=1, glob=h.args[2].npmm.onlyglo)
     if length(h.args) != 3 || !(h.args[1] isa EstimationSetup) ||
        !(h.args[2] isa EstimationResult) ||
        !(h.args[3] isa Integer)
@@ -421,7 +421,7 @@ function fmoms(estset::EstimationSetup, mmsolu::EstimationResult; which_point=1,
 
     if display_all
         for i in eachindex(titles)
-            display(fmoms(estset, mmsolu, i; which_point, glob))
+            display(fmoms(estset, mmsolu, i; which_point, glob, title = titles[i]))
         end
     end
 
@@ -469,10 +469,10 @@ fbootstrap
 
         subplot := k
         legend := :none
+        title := labs[k]
 
         @series begin
-            seriestype := :histogram
-            title := labs[k]
+            seriestype := :histogram            
             xdist_trimmed
         end
 
@@ -517,8 +517,6 @@ end
         ord_glo[i] = findfirst(y -> y == xglo[i],xlocstart) 
         # if ord_glo[i] = k, then the kth local point corresponds to the ith global point
     end
-
-    println(ord_glo)
 
     merge!(plotattributes, fonts())
 

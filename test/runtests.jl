@@ -9,6 +9,10 @@ end
     include("unittest_localestimation.jl")
 end
 
+@testset "Unit test of bootstrap" begin
+    include("unittest_bootstrap.jl")
+end
+
 @testset "Integration test of minimal example" begin
     include("integrationtest_minimal.jl")
 end
