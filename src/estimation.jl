@@ -870,13 +870,13 @@ $(TYPEDSIGNATURES)
 
 Merges results from different global estimations. Uses aux, presh, pmm from first result.
 """
-function mergeglo(estset::EstimationSetup, results::Vector{EstimationResult}; saving::Bool=true, filename_suffix::String="")
-    all([res.onlyglo for res in results]) || throw(ArgumentError("should be used to merge global results only"))
-    objg = results[1].fglo
-    xg = results[1].xglo
-    momg = results[1].momglo
+function mergeglo(estset::EstimationSetup, results::Vector{T}; saving::Bool=true, filename_suffix::String="") where {T<:EstimationResult}
+    all([res.npmm.onlyglo for res in results]) || throw(ArgumentError("should be used to merge global results only"))
+    objg = copy(results[1].fglo)
+    xg = copy(results[1].xglo)
+    momg = copy(results[1].momglo)
 
-    for i in eachindex(results)
+    for i in 2:length(results)
         append!(objg, results[i].fglo)
         append!(xg, results[i].xglo)
         append!(momg, results[i].momglo)
@@ -909,20 +909,20 @@ $(TYPEDSIGNATURES)
 Merges results from different local estimations.
 Uses aux, presh, pmm and global results from first result.
 """
-function mergeloc(estset::EstimationSetup, results::Vector{EstimationResult}; saving::Bool=true, filename_suffix::String="")
+function mergeloc(estset::EstimationSetup, results::Vector{T}; saving::Bool=true, filename_suffix::String="") where {T<:EstimationResult}
     for i in 2:length(results)
-        results[1].objg == results[i].objg || throw(ArgumentError("global part of given inputs are different"))
-        results[1].xg == results[i].xg || throw(ArgumentError("global part of given inputs are different"))
-        results[1].momg == results[i].momg || throw(ArgumentError("global part of given inputs are different"))
+        results[1].fglo == results[i].fglo || throw(ArgumentError("global part of given inputs are different"))
+        results[1].xglo == results[i].xglo || throw(ArgumentError("global part of given inputs are different"))
+        results[1].momglo == results[i].momglo || throw(ArgumentError("global part of given inputs are different"))
     end
 
-    objl = results[1].floc
-    xl = results[1].xloc
-    moml = results[1].momloc
-    xlocstartl = results[1].xlocstart
-    convl = results[1].conv
+    objl = copy(results[1].floc)
+    xl = copy(results[1].xloc)
+    moml = copy(results[1].momloc)
+    xlocstartl = copy(results[1].xlocstart)
+    convl = copy(results[1].conv)
 
-    for i in eachindex(results)
+    for i in 2:length(results)
         append!(objl, results[i].floc)
         append!(xl, results[i].xloc)
         append!(moml, results[i].momloc)
@@ -940,7 +940,7 @@ function mergeloc(estset::EstimationSetup, results::Vector{EstimationResult}; sa
     npmm = NumParMM(results[1].npmm.sobolinds, length(objl_sort), results[1].npmm.full_lb_global, results[1].npmm.full_ub_global, false, results[1].npmm.onlyloc, results[1].npmm.local_opt_settings)
 
     mmsolu = EstimationResult(npmm, results[1].aux, results[1].presh, xlocstartl_sort, results[1].pmm,
-        results[1].objg, results[1].xg, results[1].momg,
+        results[1].fglo, results[1].xglo, results[1].momglo,
         objl_sort, xl_sort, moml_sort, convl_sort)
 
     saving && save_estimation(estset, npmm, mmsolu, filename_suffix)

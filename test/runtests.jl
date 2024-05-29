@@ -13,6 +13,10 @@ end
     include("unittest_bootstrap.jl")
 end
 
+@testset "Unit test of functions to merge results" begin
+    include("unittest_mergeresults.jl")
+end
+
 @testset "Integration test of minimal example" begin
     include("integrationtest_minimal.jl")
 end
