@@ -1,7 +1,9 @@
 # MomentMatching.jl 
 
-## Introduction ##
-This package allows to perform Method of Moments estimation (Generalized and Simulated).
+This is a package to perform Method of Moments estimation (Generalized and Simulated). It was built having in mind three key features:
+- *Flexibility*: routines can be used for estimation of any model;
+- *Speed*: multithreading and multiprocessing (also combined) are supported, both locally and on a cluster;
+- *Ease of use*: the user just needs to write her model in the way described later and set the algorithm options before running the main estimation function.
 
 ## Installation
 To install the package run:
@@ -9,8 +11,6 @@ To install the package run:
 using Pkg
 Pkg.add("MomentMatching")
 ```
-This will also add all the required dependencies. 
-
 To load the package use the command:
 ```
 using MomentMatching
