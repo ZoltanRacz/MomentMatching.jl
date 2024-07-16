@@ -26,6 +26,13 @@ where ``W`` is a weighting matrix.[^3]
 This package provides a series of numerical routines to find such vector ``\theta``. It also contains ready-to-use tools to check the quality of the estimation results and to do statistical inference.
 
 ## Model setup
+
+One of the main challenges to 
+
+```@docs
+AuxiliaryParameters
+```
+
 Here describe the different structures/elements that need to be set up before the numerical routines can be run. Highlight that these structures are flexible and general enough to accomodate estimation of any model.
 
 ## Numerical routines
