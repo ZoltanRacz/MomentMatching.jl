@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.7' # earliest version that should be compatible
+          - '1.10.6' # current long-term support version 
           - '1' # latest version
           - 'nightly'
         os:
