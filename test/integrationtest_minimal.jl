@@ -3,8 +3,6 @@
 #TestEnv.activate()
 using MomentMatching, Test, Plots, OptimizationOptimJL
 
-include("examples/minimalAR1.jl")
-
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
 npest = NumParMM(setup; Nglo=100, Nloc=10, local_opt_settings = (algorithm = NelderMead(), maxtime = 30.0))
@@ -45,7 +43,7 @@ fmarg(setup, est_1st, marg, which_point=2)
 fsanity(setup, est_1st)
 
 fmoms(setup, est_1st, 1)
-fmoms(setup, est_1st, 1, which_point = 2)
+fmoms(setup, est_1st, 1, which_point = 10)
 
 fmoms(setup, est_1st)
 fmoms(setup, est_1st, display_all = false)
