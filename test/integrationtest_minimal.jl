@@ -45,7 +45,7 @@ fmarg(setup, est_1st, marg, which_point=2)
 fsanity(setup, est_1st)
 
 fmoms(setup, est_1st, 1)
-fmoms(setup, est_1st, 1, which_point = 2)
+fmoms(setup, est_1st, 1, which_point = 10)
 
 fmoms(setup, est_1st)
 fmoms(setup, est_1st, display_all = false)
