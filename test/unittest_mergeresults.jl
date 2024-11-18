@@ -3,8 +3,6 @@
 #TestEnv.activate()
 using MomentMatching, Test, OptimizationOptimJL
 
-include("examples/minimalAR1.jl")
-
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
 npmm = NumParMM(setup; sobolinds = 1:100, Nloc = 12, local_opt_settings = (algorithm = NelderMead(), maxiters = 50))

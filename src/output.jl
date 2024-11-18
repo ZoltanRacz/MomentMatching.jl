@@ -281,7 +281,7 @@ function tablemoms_inner(estset::EstimationSetup, mmsolu::EstimationResult, whic
 
     df = momentnames(mode, typemom)
 
-    df[:, :("Sample values")] = round.(momsdata[:, which_point], digits=3)
+    df[:, :("Sample values")] = round.(momsdata[:, 1], digits=3)
 
     glob ? momsmod = momglo : momsmod = momloc
     df[:, :("Model values")] = round.(momsmod[which_point], digits=3)
