@@ -1,6 +1,8 @@
 using MomentMatching
 using Test
 
+include("examples/minimalAR1.jl")
+
 test_multiprocessing = false
 
 test_multiprocessing || @warn("Multiprocessing is not tested.")

@@ -3,7 +3,6 @@
 #TestEnv.activate()
 using MomentMatching, Test
 using OptimizationOptimJL
-include("examples/minimalAR1.jl")
 
 setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
 
