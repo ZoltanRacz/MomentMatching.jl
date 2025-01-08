@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10.6' # current long-term support version 
+          - '1.9.4' # tetralith 
           - '1' # latest version
           - 'nightly'
         os:
