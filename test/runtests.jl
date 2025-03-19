@@ -1,6 +1,12 @@
 using MomentMatching
 using Test
 
+include("examples/minimalAR1.jl")
+
+test_multiprocessing = false
+
+test_multiprocessing || @warn("Multiprocessing is not tested.")
+
 @testset "Unit test of global estimation" begin
     include("unittest_globalestimation.jl")
 end
