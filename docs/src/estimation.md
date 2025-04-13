@@ -1,9 +1,16 @@
 # Estimation
 
 ## Background
-Here describe very briefly the GMM/SMM problem and how it can be solved numerically.
 
 ## Model setup
+
+One of the main challenges to 
+
+```@docs
+EstimationSetup
+```
+
+
 Here describe the different structures/elements that need to be set up before the numerical routines can be run. Highlight that these structures are flexible and general enough to accomodate estimation of any model.
 
 ## Numerical routines
