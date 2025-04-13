@@ -10,6 +10,7 @@ One of the main challenges to
 EstimationSetup
 ```
 
+
 Here describe the different structures/elements that need to be set up before the numerical routines can be run. Highlight that these structures are flexible and general enough to accomodate estimation of any model.
 
 ## Numerical routines

@@ -1,5 +1,6 @@
 # MomentMatching.jl 
 
+
 Generalized Method of Moments (GMM) estimation[^1] consists in finding the vector of parameters ``\theta`` that solves the following system of equations:
 
 ```math
@@ -29,6 +30,7 @@ The package was built having in mind three key features:
 - *Parallelization*: multithreading and multiprocessing (also combined) are supported, both locally and on a cluster;
 - *Ease of use*: the user just needs to write her model in a way conformable with the estimation routines and set the algorithm options before running the main estimation function.
 
+
 ## Installation
 To install the package run:
 ```
@@ -39,6 +41,7 @@ To load the package use the command:
 ```
 using MomentMatching
 ```
+
 ## Authors and citing
 - [Gualtiero Azzalini](https://gualtiazza.github.io/) (Stockholm School of Economics) 
 - [Zoltán Rácz](https://www.zoltanracz.net/) (Stockholm School of Economics)
