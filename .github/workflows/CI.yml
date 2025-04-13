@@ -24,9 +24,9 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.10.6' # current long-term support version 
+          - 'lts' # long-term support 
           - '1' # latest version
-          - 'nightly'
+          - 'pre' # pre-release
         os:
           - ubuntu-latest
           - macOS-latest
