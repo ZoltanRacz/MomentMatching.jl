@@ -1,7 +1,5 @@
 # MomentMatching.jl 
 
-This package provides a unified framework to perform Method of Moments (Generalized and Simulated) parameter estimation for economic models.
-
 Generalized Method of Moments (GMM) estimation[^1] consists in finding the vector of parameters ``\theta`` that solves the following system of equations:
 
 ```math
@@ -10,7 +8,13 @@ Generalized Method of Moments (GMM) estimation[^1] consists in finding the vecto
 
 where ``g`` is a vector of functions representing moment conditions derived from a model depending on the vector of parameters to be estimated ``\theta``. When moment conditions are computed via simulation, the above procedure is called Simulated Method of Moments (SMM) estimation.[^2]
 
-When the system is over-identified (``g`` has higher dimensionality than ``\theta``), solving such an equation exactly is in general not possible. Instead, the goal becomes finding the vector of parameters ``\theta`` that minimizes the following objective function:
+Letting ``k`` be the dimensionality of ``\theta`` and ``m`` that of ``g``, if:
+
+1. ``m<k``, then the system does not have a solution;
+2. ``m=k``, then the system is *just-identified* and there is a unique solution;
+3. ``m>k``, then the system is *over-identified* and more than one solution is possible.
+
+In the just-identified case, common procedures to solve system of equations can be used. However, when the system is over-identified, this approach is not possible. Instead, the goal becomes finding the vector of parameters ``\theta`` that minimizes the following objective function:
 
 ```math
 g(\theta)^{\prime} W g(\theta)
@@ -18,18 +22,13 @@ g(\theta)^{\prime} W g(\theta)
 
 where ``W`` is a weighting matrix.[^3] 
 
-## Features
-
-This package aims at providing a general toolbox for such estimation exercises, irrespective of what model one wants to estimate. Ready-to-use tools are provided to:
-1. estimate ``\theta`` via a combination of global search and a local optimization routine;
-2. perform diagnostic checks on the results; 
-3. do statistical inference and 
-4. produce tables and figures displaying the estimation results.
+This package provides a series of numerical routines to perform Method of Moments estimation (Generalized and Simulated), i.e., find an estimate of the vector ``\theta`` (see section [Estimation](@ref)). It also contains ready-to-use tools (i) to check the quality of the estimation results and to do statistical inference (see section [Inference and Diagnostics](@ref)) and (ii) to produce tables and figures displaying estimation results (see section [Output](@ref)).
 
 The package was built having in mind three key features:
-- *Ease of use*: The user just needs to write a wrapper around her code conformable with the estimation routines and set the algorithm options before running the main estimation function. This is an easy task even if the model code was not written specifically to be compatible with this package. 
-- *Flexibility*: Routines can be used for the estimation of any model. Estimation of robustness checks and alternative model specifications is convenient.
-- *Parallelization*: Multithreading and multiprocessing (also combined) are supported, both locally and on a cluster.
+- *Flexibility*: routines can be used for estimation of any model;
+- *Parallelization*: multithreading and multiprocessing (also combined) are supported, both locally and on a cluster;
+- *Ease of use*: the user just needs to write her model in a way conformable with the estimation routines and set the algorithm options before running the main estimation function.
+
 
 ## Installation
 To install the package run:
