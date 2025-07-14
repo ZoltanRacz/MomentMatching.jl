@@ -1,5 +1,10 @@
 # Estimation
 
+The main function to run the estimation routine is 
+
+```@docs
+estimation
+```
 ## Background
 
 ## Model setup

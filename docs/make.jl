@@ -10,4 +10,5 @@ makedocs(sitename="MomentMatching.jl",
 
 makedocs(sitename="MomentMatching.jl",
                 pages = ["Home" => "index.md",
+                "Estimation" => "estimation.md",
                 "Example" => "examples.md"])
