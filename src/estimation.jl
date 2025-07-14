@@ -231,17 +231,17 @@ Estimate model parameters given instance of [`EstimationSetup`](@ref).
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 
 # Keyword arguments
-- `npmm::NumParMM=NumParMM(estset)`: numerical parameters for estimation, see [`NumParMM`](@ref).
-- `cs::ComputationSettings=ComputationSettings()`: computational options, see [`ComputationSettings`](@ref).
-- `aux::AuxiliaryParameters=AuxiliaryParameters(estset)`: any additional pre-determined (i.e., not to be estimated) model-specific parameters, see [`AuxiliaryParameters`](@ref).
-- `presh::PredrawnShocks=PredrawnShocks(estset, aux)`: pre-generated random shocks, see [`PredrawnShocks`](@ref).
+- `npmm::NumParMM=NumParMM(estset)`: numerical parameters for estimation.
+- `cs::ComputationSettings=ComputationSettings()`: computational options.
+- `aux::AuxiliaryParameters=AuxiliaryParameters(estset)`: any additional pre-determined (i.e., not to be estimated) model-specific parameters.
+- `presh::PredrawnShocks=PredrawnShocks(estset, aux)`: pre-generated random shocks.
 - `xlocstart=[[1.0]]::Vector{Vector{Float64}}`: starting point for local optimization when only local stage is performed.
 - `saving::Bool=true`: whether to save the final estimation results.
 - `saving_bestmodel::Bool=saving`: whether to save the results for the best parameters vectors.
 - `number_bestmodel::Integer=1`: for how many best parameter vectors to save results.
 - `filename_suffix::String=""`: suffix to use in output filenames.
 - `errorcatching::Bool=false`: if true the estimation routine does not stop if an error happens when computing moments for a given parameter vector guess.
-- `vararg...`: additional arguments passed to [`initMMmodel`](@ref).
+- `vararg...`: additional arguments passed.
 """
 function estimation(estset::EstimationSetup; npmm::NumParMM=NumParMM(estset), cs::ComputationSettings = ComputationSettings(), aux::AuxiliaryParameters=AuxiliaryParameters(estset),
     presh::PredrawnShocks=PredrawnShocks(estset, aux), xlocstart::Vector{Vector{Float64}}=[[1.0]], saving::Bool=true, saving_bestmodel::Bool=saving, number_bestmodel::Integer=1, filename_suffix::String="", errorcatching::Bool=false, vararg...)
