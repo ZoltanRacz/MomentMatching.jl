@@ -224,9 +224,9 @@ end
 ## MAIN FUNCTION
 
 """
-estimation(estset::EstimationSetup;<keyword arguments>)
+    estimation(estset::EstimationSetup;<keyword arguments>)
 
-Estimate model parameters given instance of [`EstimationSetup`](@ref). 
+Estimate model parameters given instance of [`EstimationSetup`](@ref).
 
 Can be customized if non-default estimation cases have to be performed. Accepts initial guess(es) when only local stage is performed.
 
