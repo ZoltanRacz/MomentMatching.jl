@@ -11,3 +11,7 @@ makedocs(sitename="MomentMatching.jl",
 makedocs(sitename="MomentMatching.jl",
                 pages = ["Home" => "index.md",
                 "Example" => "examples.md"])
+
+deploydocs(
+    repo = "github.com/ZoltanRacz/MomentMatching.jl.git",
+)
