@@ -1,5 +1,7 @@
 # MomentMatching
 
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://ZoltanRacz.github.io/MomentMatching.jl/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://ZoltanRacz.github.io/MomentMatching.jl/dev)
 [![Build Status](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml/badge.svg?event=push)](https://github.com/ZoltanRacz/MomentMatching.jl/actions/workflows/CI.yml?event=push)
 [![codecov](https://codecov.io/gh/ZoltanRacz/MomentMatching.jl/graph/badge.svg?token=YLP96BUQ9S)](https://codecov.io/gh/ZoltanRacz/MomentMatching.jl)
 
@@ -40,8 +42,8 @@ The package was built having in mind three key features:
 
 ## Documentation
 
-The online documentation is available at ...
+The online documentation is available at <https://ZoltanRacz.github.io/MomentMatching.jl/stable>
 
 > **Note**: A version 2.0 with cleaner syntax and more detailed documentation can be expected in 2025.
 
-A worked out example with the current version of the code is shown at ...
+A worked out example with the current version of the code is shown at <https://ZoltanRacz.github.io/MomentMatching.jl/stable/example>
