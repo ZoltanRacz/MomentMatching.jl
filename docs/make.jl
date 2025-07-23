@@ -14,4 +14,5 @@ makedocs(sitename="MomentMatching.jl",
 
 deploydocs(
     repo = "github.com/ZoltanRacz/MomentMatching.jl.git",
+    push_preview = true
 )
