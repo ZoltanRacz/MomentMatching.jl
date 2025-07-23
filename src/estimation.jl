@@ -207,14 +207,14 @@ Computational settings
 $(FIELDS)
 """
 @with_kw struct ComputationSettings{T<:Integer}
-    "where computation is performed. 'local' and 'slurm' are supported presently"
+    "Where computation is performed. 'local' and 'slurm' are supported presently"
     location::String = "local"    
-    "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On a cluster give number of nodes (Should double check this)."
+    "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On Slurm cluster this should be equal to :nodes * :ntasks_per_node"
     num_procs::T = 1
-    "Number of tasks per process. Giving somewhat more than the number of actual ( virtual or physical ?? ) threads is probably a good idea.  "
+    "Number of tasks per thread. Giving somewhat more than the number of actual threads is probably a good idea to avoid idleness. Setting it equal to one performs single threading"
     num_tasks::T = Threads.nthreads()*2
-    "Number of threads that each processes are started with."
-    num_threads::T = num_tasks
+    "Number of threads to be used when starting each new process. Relevant only with multiprocessing"
+    num_threads::T = Int(Floor(Threads.nthreads() / num_procs))
     "Trigger intensive garbage collection at this memory usage"
     maxmem::T = -1
     "Other settings"

@@ -262,3 +262,41 @@ fbootstrap(setup, est, boot)
 savefig("fbootstrap.svg"); nothing # hide
 ```
 ![](fbootstrap.svg)
+
+## Multithreading and multiprocessing
+The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (``Threads`` module), multiprocessing (``Distributed`` module) and a combination of the two. We describe below how to implement each locally and on a cluster. 
+
+!!! danger 
+    While we have designed the package to make it hard to create data races, it is always the user's responsibility to check that this does not happen in their own model. For instance, it is not suggested to solve a model with multithreading if the latter is already active when looping over points in the parameter space.
+
+### Local parallelization
+The following code performs the global stage locally (as specified by the option ``location``) in three ways:
+- two processes and single threading (which is always the case when ``num_tasks=1``)
+```@example
+cs_1 = ComputationSettings(location="local", num_procs=2,num_tasks=1)
+cs_2 = ComputationSettings(location="local", num_procs=1, num_tasks=1)
+cs_3 = ComputationSettings(location="local", num_procs=1, num_tasks=1)
+loc = "local" # this defines where computation is performed, local is default
+num_procs
+num_tasks
+Tdata = 40 # true data length
+Ndata = 500 # true sample size
+Nsample = 15 # number of samples used for bootstrap
+Nseed = 15 # number of shock simulations used for bootstrap
+auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
+boot = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false)
+
+fbootstrap(setup, est, boot)
+savefig("fbootstrap.svg"); nothing # hide
+```
+
+
+### Parallelization on a cluster
+Currently, our package works only on clusters using Slurm Workload Manager. 
+
+## Ease of use
+
+### Estimating alternative specifications
+
+### Wrapping any model
+
