@@ -30,7 +30,7 @@ struct AR1Estimation <: EstimationMode
 end
 ```
 
-During the estimation, one needs to evaluate the objective function for each parameter guesses. Passing invariant parameters to the objective function is possible via defining an auxiliary structure which has to be a subtype of `AuxiliaryParameters`. One also needs to write a corresponding function to generate a default auxiliary structure as shown below. In this case, we pass the dimensions of the simulated sample.
+During the estimation, one needs to evaluate the objective function for each parameter guess. Passing invariant parameters to the objective function is possible via defining an auxiliary structure which has to be a subtype of `AuxiliaryParameters`. One also needs to write a corresponding function to generate a default auxiliary structure as shown below. In this case, we pass the dimensions of the simulated sample.
 
 ```@example
 struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters
@@ -47,7 +47,7 @@ AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 2
 nothing # hide
 ```
 
-It is crucial that the same set of shocks are used during the parameter estimation, as otherwise convergence cannot be achieved in the local minimization phase. (The sensitivity of results to different draws of shocks can be checked via bootstrapping, as explained later in the [`Inference`](@ref) section.) This is again done by defining an appropriate subtype of an existing abstract type and a function generating a default container of shocks. In this case, one needs to draw a normal shock for ``\varepsilon`` and ``\nu`` for each `t` and `n`.
+It is crucial that the same set of shocks are used during the parameter estimation, as otherwise convergence cannot be achieved in the local minimization phase. (The sensitivity of results to different draws of shocks can be checked via bootstrapping, as explained later in the [`Inference`](@ref Example.Inference) section.) This is again done by defining an appropriate subtype of an existing abstract type and a function generating a default container of shocks. In this case, one needs to draw a normal shock for ``\varepsilon`` and ``\nu`` for each `t` and `n`.
 
 ```@example
 struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
@@ -170,10 +170,15 @@ function MomentMatching.momentnames(mode::AR1Estimation, typemom::String)
 end
 ```
 
+!!!note
+    By default the deviation between data and model moments is obtained by rescaling the difference between the two with data means of each moment. For instance, if one targets the time-series of the cross-sectional skewness of the distribution of income growth, the differences in each year would be scaled by the time-series average of the cross-sectional skewness (clearly, if one targets just a moment the mean is the moment itself). The user can change this by writing a mode-specific `mdiff` function (see related code in `estimation.jl`).
 
 ## [Estimation](@id Example.Estimation)
 
-After defining an estimation setup and a structure supplying numerical settings, one can perform the estimation as follows. After checking 100 points in the global phase, a local minimization takes place using the Nelder-Mead algorithm, stated from the 10 global points with the lowest objective function values.
+After defining an estimation setup and a structure supplying numerical settings, one can perform the estimation as follows. After checking 100 points in the global phase, a local minimization takes place using the Nelder-Mead algorithm, stated from the 10 global points with the lowest objective function values. 
+
+!!!note 
+    In this example we use the default weighting matrix - which is the unitary matrix - but the user can change this by defining a a mode-specific `default_weight_matrix` function (see related code in `estimation.jl`) or by passing their preferred weighting matrix via the keyword argument `Wmat` in `estimation`.
 
 ```@example
 using OptimizationOptimJL
@@ -203,6 +208,8 @@ savefig("fmoms.svg"); nothing # hide
 ![](fmoms.svg)
 
 As in this case 3 parameters were estimated based on 3 moments (and hence parameters are exactly identified), the resulting match is very close.
+
+Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in the estimation mode will be used as suffix. The default saving paths is `"./saved/estimation_results/"`. The name will also include the model name and the name of the set of moments matched (see section [`Estimating alternative specifications`](@id Example.Alternative)).
 
 ## Diagnostics
 
@@ -235,7 +242,7 @@ savefig("fsanity_loc.svg"); nothing # hide
 ```
 ![](fsanity_loc.svg)
 
-## Inference
+## [Inference](@id Example.Inference)
 
 ### Parametric Bootstrap
 
@@ -263,40 +270,105 @@ savefig("fbootstrap.svg"); nothing # hide
 ```
 ![](fbootstrap.svg)
 
-## Multithreading and multiprocessing
-The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (``Threads`` module), multiprocessing (``Distributed`` module) and a combination of the two. We describe below how to implement each locally and on a cluster. 
+## [Multithreading and multiprocessing](@id Example.Multi)
+The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (`Threads` module, distributes across cores within a process), multiprocessing (`Distributed` module, distributes across different processes) and a combination of the two (distributes across different processes and then across the cores within a process). We describe below how to implement each locally and on a cluster. 
 
 !!! danger 
-    While we have designed the package to make it hard to create data races, it is always the user's responsibility to check that this does not happen in their own model. For instance, it is not suggested to solve a model with multithreading if the latter is already active when looping over points in the parameter space.
+    While we have designed the package to make it hard to create data races, it is always the user's responsibility to check that this does not happen in their own model. For instance, it is not suggested to solve a model with multithreading if the latter is already active when looping over points in the parameter space. Use the macro `maythread` in the part of your code using multithreading to be able to set the latter on and off with the function `threading_inside` (both are included in the package).
 
 ### Local parallelization
-The following code performs the global stage locally (as specified by the option ``location``) in three ways:
-- two processes and single threading (which is always the case when ``num_tasks=1``)
-```@example
-cs_1 = ComputationSettings(location="local", num_procs=2,num_tasks=1)
-cs_2 = ComputationSettings(location="local", num_procs=1, num_tasks=1)
-cs_3 = ComputationSettings(location="local", num_procs=1, num_tasks=1)
-loc = "local" # this defines where computation is performed, local is default
-num_procs
-num_tasks
-Tdata = 40 # true data length
-Ndata = 500 # true sample size
-Nsample = 15 # number of samples used for bootstrap
-Nseed = 15 # number of shock simulations used for bootstrap
-auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
-boot = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false)
+The following code performs the global stage locally (`location="local"`) in three ways:
+1. Two processes (`num_procs=2`), each started with two threads (i.e., cores `num_threads=2`) and no multithreading (`num_tasks=1`).
+!!! note
+    Multiprocessing distributes the tasks equally across the number of processes.
+2. One process (default) with all avaliable threads (default with one process) and multithreading (`num_tasks` defaults to twice the number of threads).
+!!! note
+    The default option for `num_tasks` tries to minimize idleness and implies that multithreading is active by default.
+3. Two processes, each started with two threads and multithreading.
 
-fbootstrap(setup, est, boot)
-savefig("fbootstrap.svg"); nothing # hide
+The difference between the first and the third case is that in the latter evaluation of points is distributed across the two threads while in the former two cores are used but evaluation of points is not parallelized across them.
+
+Given that memory is not shared across the different processes, before running any code using multiprocessing we need to make sure that the required elements (functions, packages, structures, types...) are loaded in each of them. The function to do that is `load_on_procs`. Specifically, one writes a Julia script dedicated to loading all the required elements and calls it in `load_on_procs` which takes care of running it in every process. In our case such file is called `init.jl` and it basically loads the functions, packages, structures, types, etc. that we have used so far in this example (the script is available in the `docs/src` folder of the GitHub repository of the package).
+
+```@example
+using Distributed
+function MomentMatching.load_on_procs(mode::AR1Estimation)
+    return @everywhere begin include("init.jl") end
+end; nothing # hide
 ```
 
+Now we are ready to perform the estimation in all the three ways just described.
+
+```@example
+cs_1 = ComputationSettings(location="local", num_procs=2, num_threads=2,num_tasks=1)
+cs_2 = ComputationSettings(location="local")
+cs_3 = ComputationSettings(location="local", num_procs=2, num_threads=2)
+
+# common shocks to test equivalence of methods
+auxest = AuxiliaryParameters(AR1Estimation("ar1estim"), "")
+preshest = PredrawnShocks(AR1Estimation("ar1estim"), "", "", auxest)
+
+est_1 = estimation(setup; npmm=npest, presh=preshest, cs=cs_1, saving=false)
+est_2 = estimation(setup; npmm=npest, presh=preshest, cs=cs_2, saving=false)
+est_3 = estimation(setup; npmm=npest, presh=preshest, cs=cs_3, saving=false)
+
+# sanity check that results are the same
+est_1.fglo == est_2.fglo && est_1.xglo == est_2.xglo && est_1.momglo == est_2.momglo && est_1.floc == est_2.floc && est_1.xloc == est_2.xloc && est_1.momloc == est_2.momloc
+est_1.fglo == est_3.fglo && est_1.xglo == est_3.xglo && est_1.momglo == est_3.momglo && est_1.floc == est_3.floc && est_1.xloc == est_3.xloc && est_1.momloc == est_3.momloc; nothing # hide
+```
+Note that Julia informs the user with a message whenever a process is started. The results are of course identical across the different specifications (they might differ slightly from the estimation above since we have drawn new shocks). 
+
+Since in the code above both the global and local phases are performed, the specified computational settings are applied to both. It is of course possible to run each phase separately with its own computational settings. `ComputationSettings` also works in the function performing bootstrapping.
+
+!!!tip
+    Choosing the best combination of number of processes, threads and tasks depends on the specific model and computer configuration used. For instance, while setting up multiple processes enhances parallelization, initializing them also requires time. We encourage users to experiment different combinations to figure out which one is the best for their setting.
 
 ### Parallelization on a cluster
 Currently, our package works only on clusters using Slurm Workload Manager. 
 
 ## Ease of use
 
-### Estimating alternative specifications
+### Only global or only local
+In the main example above both the global and local stages were performed in the same call. It is possible to perform only the global or only the local stage with the options `onlyglo` and `onlyloc` available in `NumParMM`: 
+```@example
+setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
+
+npest_glo = NumParMM(setup; Nglo=100, onlyglo=true)
+npest_loc = NumParMM(setup; onlyloc=true,local_opt_settings = (algorithm = NelderMead(), maxtime = 30.0))
+
+est_glo = estimation(setup; npmm=npest_glo, saving=false)
+# use the best 10 global as starting points
+est_loc = estimation(setup; npmm=npest_loc, xlocstart = est_glo.xglo[1:10], saving=false); nothing # hide
+```
+Note that in this example results might differ slightly from the estimation above because new shocks have been drawn. It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
+
+### Merging results
+For very long estimation exercises it can be useful to split the evaluation of global and/or local points across different calls of `estimation` and save the results after each call (so that if something goes wrong one does not need to recompute everything from scratch). For instance, to evaluate 10000 global points one can call `estimation` four times, each time evaluating 2500 points and then saving the results (choosing which global points to evaluate in a given parameter space can be achieved through the option `sobolinds` in `estimation`). The function to achieve this is `mergeglo`. Below an example with 100 global points evaluated with two calls:
+
+```@example
+npest_glo_batch1 = NumParMM(setup; sobolinds=1:50, onlyglo=true)
+npest_glo_batch2 = NumParMM(setup; sobolinds=51:100, onlyglo=true)
+
+est_batch1 = estimation(setup; npmm=npest_glo_batch1, saving=false) 
+est_batch2 = estimation(setup; npmm=npest_glo_batch2, saving=false)
+
+estmerged = mergeglo(setup, [est_batch1, est_batch2]; saving=false); nothing # hide
+```
+In this case, the estimation results to be merged were already in memory when merging, but one can of course load any already saved estimation result (again, note that results might be different from previous estimations because new shocks were drawn).
+
+A similar procedure can be applied for the local stage with the function `mergeloc` (in this case the user needs to specify the starting point with the option `xlocstart` in `estimation`). Finally, the function `mergegloloc` allows to merge together separate global and local results.
+
+!!!danger
+    To create the merged estimation result structure, `mergeglo` uses AuxiliaryParameters, PredrawnShocks. and ParMM (the latter is an auxiliary structure to initialize all the estimation inputs, see relevant code in `estimation.jl`) structures from first entry of the vector of results. The same holds for `mergeloc` with the addition that also the global results used as input come from the first entry of the vector of results. Finally `mergegloloc` assumes that global and local results to be merged are already ordered (`mergeglo` and `mergeloc` instead obviously perform reordering).
+
+### [Estimating alternative specifications](@id Example.Alternative)
 
 ### Wrapping any model
+
+## Relation with GMM
+In the above example we have explained how the procedure works with SMM, but extending usage of our package routines to GMM is straightforward. With GMM usually one has a set of moment conditions that should hold with equality and rather than simulating data from a model, actual data are used to compute such conditions over the points in the parameter space. 
+
+The user, therefore, in this case just needs to write their own code to compute such conditions and check how far away from zero they are. In other words, zero is the data moment to be used when computing the difference between model and data moments. 
+
+Note that since the default version of `mdiff` scales by the average of a specific data moment (if one targets just a moment the mean is clearly the moment itself), if such value is zero, the user also needs to write a mode-specific `mdiff` function.
 

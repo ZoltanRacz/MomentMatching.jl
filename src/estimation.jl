@@ -211,10 +211,10 @@ $(FIELDS)
     location::String = "local"    
     "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On Slurm cluster this should be equal to :nodes * :ntasks_per_node"
     num_procs::T = 1
-    "Number of tasks per thread. Giving somewhat more than the number of actual threads is probably a good idea to avoid idleness. Setting it equal to one performs single threading"
+    "Number of tasks per thread. Giving somewhat more than the number of actual threads is probably a good idea to avoid idleness. Setting it equal to one implies singlethreading"
     num_tasks::T = Threads.nthreads()*2
-    "Number of threads to be used when starting each new process. Relevant only with multiprocessing"
-    num_threads::T = Int(Floor(Threads.nthreads() / num_procs))
+    "Number of threads to be used when starting each new process. Relevant only with multiprocessing."
+    num_threads::T = Int(floor(Threads.nthreads()/num_procs))
     "Trigger intensive garbage collection at this memory usage"
     maxmem::T = -1
     "Other settings"
@@ -868,7 +868,7 @@ Two-step estimation procedure.
 - filename_suffix: String with suffix to be used for file name when saving.
 """
 function two_stage_estimation(estset::EstimationSetup, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; aux::AuxiliaryParameters=AuxiliaryParameters(estset), npmm::NumParMM=NumParMM(estset.mode), saving::Bool=true, saving_bestmodel::Bool=saving, filename_suffix::String="", errorcatching::Bool=false)
-
+    @warn("Second step matrix invalid. Avoid using this function for now (which for this reason should now return an error on purpose).")
     est_1st = estimation(estset; aux, npmm, saving, saving_bestmodel, filename_suffix=filename_suffix * "_1st", errorcatching)
     boot_1st = param_bootstrap_result(estset, est_1st, auxmomsim, Nseeds, Nsamplesim, Ndata; saving, filename_suffix=filename_suffix * "_1st")
 
