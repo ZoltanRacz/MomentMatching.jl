@@ -57,8 +57,7 @@ struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     νs::Array{S,2}
 end
 
-function PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String,
- aux::AuxiliaryParameters)
+function PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String,aux::AuxiliaryParameters)
     return AR1PreShocks(randn(aux.Nsim, aux.Tsim),
         randn(aux.Nsim, aux.Tsim))
 end
@@ -209,7 +208,7 @@ savefig("fmoms.svg"); nothing # hide
 
 As in this case 3 parameters were estimated based on 3 moments (and hence parameters are exactly identified), the resulting match is very close.
 
-Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in the estimation mode will be used as suffix. The default saving paths is `"./saved/estimation_results/"`. The name will also include the model name and the name of the set of moments matched (see section [`Estimating alternative specifications`](@id Example.Alternative)).
+Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in the estimation mode will be used as suffix. The default saving paths is `"./saved/estimation_results/"`. The name will also include the model name and the name of the set of moments matched (see section [`Estimating alternative specifications`](@ref Example.Alternative)).
 
 ## Diagnostics
 
@@ -279,22 +278,23 @@ The global and local phases of the estimation procedure require evaluating the o
 ### Local parallelization
 The following code performs the global stage locally (`location="local"`) in three ways:
 1. Two processes (`num_procs=2`), each started with two threads (i.e., cores `num_threads=2`) and no multithreading (`num_tasks=1`).
+2. One process (default) with all avaliable threads (default with one process) and multithreading (`num_tasks` defaults to twice the number of threads).
+3. Two processes, each started with two threads and multithreading.
 !!! note
     Multiprocessing distributes the tasks equally across the number of processes.
-2. One process (default) with all avaliable threads (default with one process) and multithreading (`num_tasks` defaults to twice the number of threads).
 !!! note
     The default option for `num_tasks` tries to minimize idleness and implies that multithreading is active by default.
-3. Two processes, each started with two threads and multithreading.
 
 The difference between the first and the third case is that in the latter evaluation of points is distributed across the two threads while in the former two cores are used but evaluation of points is not parallelized across them.
 
 Given that memory is not shared across the different processes, before running any code using multiprocessing we need to make sure that the required elements (functions, packages, structures, types...) are loaded in each of them. The function to do that is `load_on_procs`. Specifically, one writes a Julia script dedicated to loading all the required elements and calls it in `load_on_procs` which takes care of running it in every process. In our case such file is called `init.jl` and it basically loads the functions, packages, structures, types, etc. that we have used so far in this example (the script is available in the `docs/src` folder of the GitHub repository of the package).
 
+
 ```@example
 using Distributed
 function MomentMatching.load_on_procs(mode::AR1Estimation)
-    return @everywhere begin include("init.jl") end
-end; nothing # hide
+    return @everywhere begin include("./docs/src/init.jl") end
+end
 ```
 
 Now we are ready to perform the estimation in all the three ways just described.
@@ -311,16 +311,13 @@ preshest = PredrawnShocks(AR1Estimation("ar1estim"), "", "", auxest)
 est_1 = estimation(setup; npmm=npest, presh=preshest, cs=cs_1, saving=false)
 est_2 = estimation(setup; npmm=npest, presh=preshest, cs=cs_2, saving=false)
 est_3 = estimation(setup; npmm=npest, presh=preshest, cs=cs_3, saving=false)
-
-# sanity check that results are the same
-est_1.fglo == est_2.fglo && est_1.xglo == est_2.xglo && est_1.momglo == est_2.momglo && est_1.floc == est_2.floc && est_1.xloc == est_2.xloc && est_1.momloc == est_2.momloc
-est_1.fglo == est_3.fglo && est_1.xglo == est_3.xglo && est_1.momglo == est_3.momglo && est_1.floc == est_3.floc && est_1.xloc == est_3.xloc && est_1.momloc == est_3.momloc; nothing # hide
 ```
+
 Note that Julia informs the user with a message whenever a process is started. The results are of course identical across the different specifications (they might differ slightly from the estimation above since we have drawn new shocks). 
 
 Since in the code above both the global and local phases are performed, the specified computational settings are applied to both. It is of course possible to run each phase separately with its own computational settings. `ComputationSettings` also works in the function performing bootstrapping.
 
-!!!tip
+!!! tip
     Choosing the best combination of number of processes, threads and tasks depends on the specific model and computer configuration used. For instance, while setting up multiple processes enhances parallelization, initializing them also requires time. We encourage users to experiment different combinations to figure out which one is the best for their setting.
 
 ### Parallelization on a cluster
@@ -358,7 +355,7 @@ In this case, the estimation results to be merged were already in memory when me
 
 A similar procedure can be applied for the local stage with the function `mergeloc` (in this case the user needs to specify the starting point with the option `xlocstart` in `estimation`). Finally, the function `mergegloloc` allows to merge together separate global and local results.
 
-!!!danger
+!!! danger
     To create the merged estimation result structure, `mergeglo` uses AuxiliaryParameters, PredrawnShocks. and ParMM (the latter is an auxiliary structure to initialize all the estimation inputs, see relevant code in `estimation.jl`) structures from first entry of the vector of results. The same holds for `mergeloc` with the addition that also the global results used as input come from the first entry of the vector of results. Finally `mergegloloc` assumes that global and local results to be merged are already ordered (`mergeglo` and `mergeloc` instead obviously perform reordering).
 
 ### [Estimating alternative specifications](@id Example.Alternative)
