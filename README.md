@@ -46,4 +46,4 @@ The online documentation is available at <https://ZoltanRacz.github.io/MomentMat
 
 > **Note**: A version 2.0 with cleaner syntax and more detailed documentation can be expected in 2025.
 
-A worked out example with the current version of the code is shown at <https://ZoltanRacz.github.io/MomentMatching.jl/stable/example>
+A worked out example with the current version of the code is shown at <https://ZoltanRacz.github.io/MomentMatching.jl/stable/examples>

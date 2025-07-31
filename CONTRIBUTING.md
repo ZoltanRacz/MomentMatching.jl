@@ -1,0 +1,11 @@
+## Quidelines for contributing code
+ - **main** exists continuously and is always expected to run without errors. The latest tagged commit on **main** contains the latest version we want users to run. The newest commit on **main** corresponds to a development version.
+ - Every single new feature or fix belongs to a separate, dedicated temporary branch. Conceptually different things shouldn't share one temporary branch.
+     - These temporary branches are allowed to fail while development, it is more important to continuously push stuff online than making sure everything online is perfect.
+     - However, to make changes tractable, commits that logically belong together should ideally be squashed together. 
+ - Updating main:
+     - When merging changes to **main** that we want to make available to users, we update the version number in Project.toml following Semantic Versioning (https://semver.org/), which triggers TagBot to create a corresponding tag on GitHub. 
+     - When a PR contains no change to the code (only changes in test or documentation), we do not modify Project.toml, and need to create a tag manually. In this case the version numbers stays the same, but we change metadata. For example, `1.0.0+doc3`.
+     - It is ok to merge some changes together into a 'release' branch before merging to **main**. It is still important that separate changes have their own branches first, since this makes it easier to understand the final pull requests into **main** than just a linear series of unrelated commits would be. After merging, release branches are to be deleted.
+ - PRs that change code should have appropriate tests and documentation.
+ - Other useful advice on good practice can be found at https://github.com/SciML/ColPrac. 
