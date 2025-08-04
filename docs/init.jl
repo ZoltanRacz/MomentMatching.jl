@@ -2,6 +2,7 @@
 using MomentMatching 
 using Statistics
 using DataFrames 
+using OptimizationOptimJL
 
 struct AR1Estimation <: EstimationMode 
     "mode-dependent prefix of filenames used for saving estimation results"
