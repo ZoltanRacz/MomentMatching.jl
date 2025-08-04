@@ -336,18 +336,18 @@ And finally run the estimations with the three different specifications:
 
 ```julia-repl
 julia> est_1 = estimation(setup; npmm=npest, presh=preshest, cs=cs_1, saving=false);
-Performing global stage... 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:40
-Performing local stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:59
+Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:23
+Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:52
 
 julia> est_2 = estimation(setup; npmm=npest, presh=preshest, cs=cs_2, saving=false);
-Performing global stage... 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:07
-Performing local stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:02:48
+Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:05
+Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:22
 
 julia> est_3 = estimation(setup; npmm=npest, presh=preshest, cs=cs_3, saving=false);
-Performing global stage... 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:24
-Performing local stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:02:08
+Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:25
+Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:41
 ```
-Sanity check that results are the same (they might differ slightly from the estimation at the beginning since we have drawn new shocks):
+Sanity check that results are the same (they might differ slightly from the estimation at the beginning since we have drawn new shocks and because of the low max time of the local stage set used for exemplificatory purposes):
 ```julia-repl
 julia> tableest(setup,est_1);
 3×2 DataFrame
@@ -556,7 +556,7 @@ est_glo = estimation(setup; npmm=npest_glo, saving=false)
 est_loc = estimation(setup; npmm=npest_loc, xlocstart = est_glo.xglo[1:10], saving=false) 
 nothing # hide
 ```
-Note that in this example results might differ slightly from the estimation above because new shocks have been drawn. It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
+Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low max time of the local stage set used for exemplificatory purposes). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
 
 ### Merging results
 For very long estimation exercises it can be useful to split the evaluation of global and/or local points across different calls of `estimation` and save the results after each call (so that if something goes wrong one does not need to recompute everything from scratch). For instance, to evaluate 10000 global points one can call `estimation` four times, each time evaluating 2500 points and then saving the results (choosing which global points to evaluate in a given parameter space can be achieved through the option `sobolinds` in `estimation`). The function to achieve this is `mergeglo`. Below an example with 100 global points evaluated with two calls:
