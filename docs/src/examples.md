@@ -209,10 +209,10 @@ savefig("fmoms.svg"); nothing # hide
 
 As in this case 3 parameters were estimated based on 3 moments (and hence parameters are exactly identified), the resulting match is very close.
 
-Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in the estimation mode will be used as suffix. The default saving path is `"./saved/estimation_results/"`. 
+Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in estimation mode will be used as suffix. The default saving path is `"./saved/estimation_results/"`. 
 
 ### Wrapping any model
-when running structural estimation exercises, one usually has a code that performs the same computations as `MomentMatching.obj_mom!` and loops over it to evaluate the objective functions at different points. Given that, it is simple to wrap any model into the format required by `MomentMatching` by following the steps below before running the `estimation` function:
+When running structural estimation exercises, one usually has a code that performs the same computations as `MomentMatching.obj_mom!` and loops over it to evaluate the objective functions at different points. Given that, it is simple to wrap any model into the format required by `MomentMatching` by following the steps below before running the `estimation` function:
 
 1. Set up an `EstimationMode` structure.
 2. Write `EstimationMode`-specific auxiliary structures `AuxiliaryParameters`, `PredrawnShocks` and `PreallocatedContainers` whenever relevant.
@@ -344,7 +344,7 @@ julia> est_3 = estimation(setup; npmm=npest, presh=preshest, cs=cs_3, saving=fal
 Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:25
 Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:41
 ```
-Sanity check that results are the same (they might differ slightly from the estimation at the beginning since we have drawn new shocks and because of the low max time of the local stage used for exemplificatory purposes):
+Sanity check that results are the same (they might differ slightly from the estimation at the beginning since we have drawn new shocks and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage):
 ```julia-repl
 julia> tableest(setup,est_1);
 3×2 DataFrame
@@ -374,10 +374,10 @@ julia> tableest(setup,est_3);
    3 │ σν                 0.542
 ```
 
-Since in the code above both the global and local phases are performed, the specified computational settings are applied to both. It is of course possible to run each phase separately with its own computational settings. `ComputationSettings` also works in the function performing bootstrapping.
+Since in the code above both the global and local phases are performed, the specified computational settings are applied to both. It is of course possible to run each phase separately with its own computational settings (see the section [`Only global or only local`](@ref Example.Onlyone) the description of how to run the two stages separately). `ComputationSettings` also works in the function performing bootstrapping.
 
 ### Parallelization on a cluster
-Currently, our package works only on clusters using Slurm Workload Manager. This is an example on how to set `ComputationSettings` to be run on Slurm:
+Currently, our package works only on clusters using Slurm Workload Manager. This is an example on how to set `ComputationSettings` for running the estimation on Slurm:
 ```julia-repl
 cs = ComputationSettings(location = "slurm", 
 num_procs = 16,
@@ -412,14 +412,14 @@ We have specified the following options:
     - `:partition` the name of the HPC partition to use
     See the Slurm [docs](https://slurm.schedmd.com/documentation.html) for more details and options.
 
-Users can thus perform multiprocessing, multithreading and/or a combination of the two also on a cluster which uses Slurm by properly specifying these options before running the `estimation` command.
+Users can thus perform multiprocessing, multithreading and/or a combination of the two also on a cluster which uses Slurm by properly specifying these options. Including `ComputationSettings` defined in the way just explained in the `estimation` command will automatically ensure that the latter is run with Slurm.
 
 !!! note 
     As explained in the example, the options to be passed to Slurm are related to the options to be specified in the structure `ComputationSettings` of our package. We are aware of the slight abuse of notation of the word *task*: in our package it refers to the number of tasks for multithreading, while in Slurm to the number of processes per node. This is a legacy from having added the Slurm option after the local one, and it might be changed in future versions.
 
 !!! note
     - Hardware configuration and rules for Slurm options to be included might differ across HPCs. It's the user's responsibility to make sure that the options conform with their specific case. 
-    - If on a cluster, it's important to remember to set up correctly the required environment by loading the packages and functions before running the estimation.
+    - If on a cluster, it's important to remember to set up correctly the required environment by loading the packages and functions in each process before running the estimation.
     - If one runs the code from an open Julia session in the HPC then the Slurm command called is `srun`. It should be possible to use also `sbatch` by writing a script that calls the code.
 
 !!! tip
@@ -428,15 +428,15 @@ Users can thus perform multiprocessing, multithreading and/or a combination of t
 ## Other useful features
 
 ### [Estimating alternative specifications](@id Example.Alternative)
-The package allows easy estimation of alternative model specifications or using a different set of moments. For instance, imagine that we want to estimate the original model without the noise, i.e., with $\sigma_\nu=0$ by targeting only the variance and the first-order autocovariance. The first step is to define appropriately the structure `EstimationSetup`:
+The package allows easy estimation of alternative model specifications or using a different set of moments. For instance, imagine that we want to estimate the original model without the noise, i.e., $\sigma_\nu=0$, by targeting only the variance and the first-order autocovariance. The first step is to define appropriately the structure `EstimationSetup`:
 ```@example
 setup_noise_off = EstimationSetup(AR1Estimation("ar1estim"), "noise_off", "onlytwo");
 nothing # hide
 ```
-The first element is `EstimationMode` (as we had before, and we keep it the same since we are considering a restricted version of the original model), the second element is a string specifying how we want to call this restricted specification (`modelname`), and the latter is a string specifyinghow to call the set of moments to target (`typemom`). Note that these two strings were defined as empty in the original case presented before.
+The first element is `EstimationMode` (as we had before, and we keep it the same since we are considering a restricted version of the original model), the second element is a string specifying how we want to call this restricted specification (`modelname`), and the latter is a string specifying how to call the set of moments to target (`typemom`). Note that these two strings were defined as empty in the case presented before.
 
 !!! note
-    The `modelname` and `typemom` strings will be automatically included in the names of the saved files.
+    The `modelname` and `typemom` strings will be automatically included in the names of saved files.
 
 Then, one specifies which parameters have to be estimated (relative to the order specified in `parambounds`) with the function `indexvector`:
 ```@example
@@ -451,7 +451,7 @@ function MomentMatching.indexvector(mode::AR1Estimation, modelname::String)
 end
 ```
 !!! note 
-    If `indexvector` is not specified by the user, the algorithm estimates all the parameters included in `parambounds`. 
+    If `indexvector` is not specified by the user, the algorithm includes all the parameters in `parambounds`. 
 
 Similarly, the set of moments to be targeted can be specified by redefining `MomentMatching.datamoments` for different `typemom`:
 ```@example
@@ -526,7 +526,7 @@ function MomentMatching.momentnames(mode::AR1Estimation, typemom::String)
 end
 ```
 !!! note 
-    In a similar fashion, it is possible to make `modelname`- and `typemom`-specific also the auxiliary functions, the default matrix, and the functions to display the estimation results.
+    In a similar fashion, it is possible to make `modelname`- and `typemom`-specific also the auxiliary functions and the default matrix.
 
 We are now ready to run the estimation of the restricted model: 
 ```@example
@@ -538,13 +538,11 @@ tablemoms(setup_noise_off, est_noise_off)
 ```
 
 !!! note 
-    In this example we have shown how to adapt the procedure to make it `modelname` and `typemom`-specific. One can of course make it specific for just for one of the two. For instance, if there are more moments than parameters one could just change `typemom` to estimate the original model with different sets of moments.
+    In this example we have shown how to adapt the procedure to make it `modelname`- and `typemom`-specific. One can of course make it specific for just for one of the two. For instance, if there are more moments than parameters one could just change `typemom` to estimate the original model with different sets of moments.
 
-### Only global or only local
+### [Only global or only local](@id Example.Onlyone)
 In the main example above both the global and local stages were performed in the same call. It is possible to perform only the global or only the local stage with the options `onlyglo` and `onlyloc` available in `NumParMM`: 
 ```@example
-setup = EstimationSetup(AR1Estimation("ar1estim"), "", "")
-
 npest_glo = NumParMM(setup; Nglo=100, onlyglo=true)
 npest_loc = NumParMM(setup; onlyloc=true,local_opt_settings = (algorithm = NelderMead(), maxtime = 30.0))
 
@@ -553,7 +551,13 @@ est_glo = estimation(setup; npmm=npest_glo, saving=false)
 est_loc = estimation(setup; npmm=npest_loc, xlocstart = est_glo.xglo[1:10], saving=false) 
 nothing # hide
 ```
-Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low max time of the local stage used for exemplificatory purposes). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
+```@example
+tableest(setup, est_loc)
+```
+```@example
+tablemoms(setup, est_loc)
+```
+Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
 
 ### Merging results
 For very long estimation exercises it can be useful to split the evaluation of global and/or local points across different calls of `estimation` and save the results after each call (so that if something goes wrong one does not need to recompute everything from scratch). For instance, to evaluate 10000 global points one can call `estimation` four times, each time evaluating 2500 points and then saving the results (choosing which global points to evaluate in a given parameter space can be achieved through the option `sobolinds` in `estimation`). The function to achieve this is `mergeglo`. Below an example with 100 global points evaluated with two calls:
@@ -568,7 +572,13 @@ est_batch2 = estimation(setup; npmm=npest_glo_batch2, saving=false)
 estmerged = mergeglo(setup, [est_batch1, est_batch2]; saving=false)
 nothing # hide
 ```
-In this case, the estimation results to be merged were already in memory when merging, but one can of course load any already saved estimation result (again, note that results might be different from previous estimations because new shocks were drawn).
+```@example
+tableest(setup, estmerged)
+```
+```@example
+tablemoms(setup, estmerged)
+```
+In this case, the estimation results to be merged were already in memory when merging, but one can of course load any already saved estimation result (again, note that results might be different from previous estimations for the same reasons described before).
 
 A similar procedure can be applied for the local stage with the function `mergeloc` (in this case the user needs to specify the starting points to be evaluated with the option `xlocstart` in `estimation`). Finally, the function `mergegloloc` allows to merge together separate global and local results.
 
