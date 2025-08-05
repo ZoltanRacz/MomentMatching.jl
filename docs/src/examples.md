@@ -551,12 +551,6 @@ est_glo = estimation(setup; npmm=npest_glo, saving=false)
 est_loc = estimation(setup; npmm=npest_loc, xlocstart = est_glo.xglo[1:10], saving=false) 
 nothing # hide
 ```
-```@example
-tableest(setup, est_loc)
-```
-```@example
-tablemoms(setup, est_loc)
-```
 Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
 
 ### Merging results
@@ -571,12 +565,6 @@ est_batch2 = estimation(setup; npmm=npest_glo_batch2, saving=false)
 
 estmerged = mergeglo(setup, [est_batch1, est_batch2]; saving=false)
 nothing # hide
-```
-```@example
-tableest(setup, estmerged)
-```
-```@example
-tablemoms(setup, estmerged)
 ```
 In this case, the estimation results to be merged were already in memory when merging, but one can of course load any already saved estimation result (again, note that results might be different from previous estimations for the same reasons described before).
 
