@@ -419,7 +419,7 @@ Users can thus perform multiprocessing, multithreading and/or a combination of t
 
 !!! note
     - Hardware configuration and rules for Slurm options to be included might differ across HPCs. It's the user's responsibility to make sure that the options conform with their specific case. 
-    - If on a cluster, it's important to remember to set up correctly the required environment by loading the packages and functions in each process before running the estimation.
+    - If on a cluster, it's important to remember to set up correctly the required environment by loading the packages and functions before running the estimation.
     - If one runs the code from an open Julia session in the HPC then the Slurm command called is `srun`. It should be possible to use also `sbatch` by writing a script that calls the code.
 
 !!! tip
