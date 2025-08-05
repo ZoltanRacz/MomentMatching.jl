@@ -305,9 +305,6 @@ The difference between the first and the third case is that in the latter evalua
 
 Given that memory is not shared across the different processes, before running any code using multiprocessing we need to make sure that the required elements (functions, packages, structures, types...) are loaded in each of them. The function to do that is `load_on_procs`. Specifically, one writes a Julia script dedicated to loading all the required elements and calls it in `load_on_procs` which takes care of running it in every process. In our case such file is called `init.jl` and it basically loads the functions, packages, structures, types, etc. that we have used so far in this example (if you want to have a look, the script is available in the `docs` folder of the GitHub repository of the package). Be sure to specify the path correctly when calling `include`.
 
-!!! note
-    The code used below was obtained with the project environment specified in the folder `docs`.
-
 ```julia-repl
 julia> using Distributed
 julia> using ClusterManagers
