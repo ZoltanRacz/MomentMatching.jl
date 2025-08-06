@@ -4,7 +4,7 @@
 
 # Example: Estimating an AR(1) process with noise
 
-In this example we show the main features of the package. Consider a stochastic process that is a sum of an AR(1) process and a white noise as follows:
+Consider a stochastic process that is a sum of an AR(1) process and a white noise as follows:
 
 ```math
 \begin{align*}
@@ -19,6 +19,16 @@ where
 are i.i.d. shocks. The aim is to estimate parameters ``(\rho, \sigma_\varepsilon, \sigma_\nu)`` based on a set of moments ``\text{Var}(y_{t}), \text{Cov}(y_{t}, y_{t-1}), \text{Cov}(y_{t}, y_{t-2})`` computed from an observed sample of ``y_{i,t}``s.
 
 ## Setting up the problem
+
+Being about to run a structural estimation exercise, one usually already has a piece of code that given
+ - a guess for the estimated parameters;
+ - (possibly) a set of other parameters that are treated fixed;
+ - (possibly) a draw of random shocks;
+ - (possibly) a set of empty arrays (to avoid allocation while evaluating the function)
+
+can compute a set of counterfactual moments, which can then be compared to its empirical counterpart.
+
+To utilize this package one has to wrap this objective function and its inputs into functions and abstract types defined within the package. This is shown below.
 
 First, one needs to define an estimation mode:
 
@@ -65,7 +75,12 @@ end
 nothing # hide
 ```
 
-In order to compute the necessary moments of large samples, one often needs to populate large arrays with realized values(in our case, of ``y_{i,t}``s). Creating separate containers for each guess for the parameter vector would be very costly, so instead this is done once before starting the estimation, and the data contained within will be repeatedly overwritten (note that when performing an estimation via parallel computing, these containers are internally generated separately for each thread, and hence data race is avoided). In this example, we will compute cross-sectional moments in each time period and take their time-average in the final step. Therefore, we need to keep track of ``z`` and ``y`` (together its first and second lags) and the already computed moments. Defining the structure of preallocated data follows a similar logic as the previous steps.
+In order to compute the necessary moments of large samples, one often needs to populate large arrays with realized values(in our case, of ``y_{i,t}``s). Creating separate containers for each guess for the parameter vector would be very costly, so instead this is done once before starting the estimation, and the data contained within will be repeatedly overwritten 
+
+!!! note 
+    When performing an estimation via parallel computing, these containers are internally generated separately for each thread, and hence data race is automatically avoided.
+
+In this example, we will compute cross-sectional moments in each time period and take their time-average in the final step. Therefore, we need to keep track of ``z`` and ``y`` (together its first and second lags) and the already computed moments. Defining the structure of preallocated data follows a similar logic as the previous steps.
 
 ```@example
 struct AR1PrealCont{S<:AbstractFloat} <: PreallocatedContainers
@@ -172,9 +187,15 @@ end
 !!! note 
     By default the deviation between data and model moments is obtained by rescaling the difference between the two with data means of each moment. For instance, if one targets the time-series of the cross-sectional skewness of the distribution of income growth, the differences in each year would be scaled by the time-series average of the cross-sectional skewness (clearly, if one targets just one moment the mean is the moment itself). The user can change this by writing a mode-specific `mdiff` function (see related code in `estimation.jl`).
 
+To summarize, when applying this package for existing code, follow these steps:
+
+1. Set up an `EstimationMode` structure.
+2. Write `EstimationMode`-specific auxiliary structures `AuxiliaryParameters` (for any input that stays constant all over the estimation), `PredrawnShocks` (for simulation noise) and `PreallocatedContainers` (containers which can be overwritten over the estimation) whenever relevant. These will be inputs of the objective function.
+3. Set the bounds of the parameter space and the values of the moments to be matched by writing an `EstimationMode`-specific `MomentMatching.parambounds` and `MomentMatching.datamoments` functions. 
+4. Wrap the objective function within an appropriate method of `MomentMatching.obj_mom!`.
 
 ## [Estimation](@id Example.Estimation)
-After defining an estimation setup (see section [`Estimating alternative specifications`](@ref Example.Alternative) for more details on why this structure is useful) and a structure supplying numerical settings, one can perform the estimation as follows. After checking 100 points in the global phase, a local minimization takes place using the Nelder-Mead algorithm, stated from the 10 global points with the lowest objective function values. 
+After defining an estimation setup (see section [`Estimating alternative specifications`](@ref Example.Alternative) for more details on why this structure is useful) and a structure supplying numerical settings, one can perform the estimation as follows. After checking 100 points in the global phase, a local minimization takes place using the Nelder-Mead algorithm, started from the 10 global points with the lowest objective function values. 
 
 !!! note 
     In this example we use the default weighting matrix - which is the unitary matrix - but the user can change this by defining a a mode-specific `default_weight_matrix` function (see related code in `estimation.jl`) or by passing their preferred weighting matrix via the keyword argument `Wmat` to `estimation`.
@@ -210,21 +231,6 @@ savefig("fmoms.svg"); nothing # hide
 As in this case 3 parameters were estimated based on 3 moments (and hence parameters are exactly identified), the resulting match is very close.
 
 Results can be saved by setting `saving` equal to `true`. In this case `filename` specified in estimation mode will be used as suffix. The default saving path is `"./saved/estimation_results/"`. 
-
-### Wrapping any model
-When running structural estimation exercises, one usually has a code that performs the same computations as `MomentMatching.obj_mom!` and loops over it to evaluate the objective functions at different points. Given that, it is simple to wrap any model into the format required by `MomentMatching` by following the steps below before running the `estimation` function:
-
-1. Set up an `EstimationMode` structure.
-2. Write `EstimationMode`-specific auxiliary structures `AuxiliaryParameters`, `PredrawnShocks` and `PreallocatedContainers` whenever relevant.
-3. Set the bounds of the parameter space and the values of the moments to be matched by writing an `EstimationMode`-specific `MomentMatching.parambounds` and `MomentMatching.datamoments` functions. 
-4. Define an `EstimationSetup` and a structure supplying numerical settings `NumParMM`.
-
-### Relation with GMM
-In the above example we have explained how the procedure works with SMM, but extending usage of our package routines to GMM is straightforward. With GMM usually one has a set of moment conditions that should hold with equality and rather than simulating data from a model, actual data are used to compute such conditions over the points in the parameter space. 
-
-The user, therefore, in this case just needs to write their own code to compute such conditions and check how far away from zero they are. In other words, zero is the data moment to be used when computing the difference between model and data moments. 
-
-Note that since the default version of `mdiff` scales by the average of a specific data moment (if one targets just a moment the mean is clearly the moment itself), if such value is zero, the user also needs to write a mode-specific `mdiff` function.
 
 ## Diagnostics
 
@@ -278,7 +284,7 @@ Ndata = 500 # true sample size
 Nsample = 15 # number of samples used for bootstrap
 Nseed = 15 # number of shock simulations used for bootstrap
 auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
-boot = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false)
+boot = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false);
 
 fbootstrap(setup, est, boot)
 savefig("fbootstrap.svg"); nothing # hide
