@@ -202,16 +202,16 @@ end
 """
 $(TYPEDEF)
 # Description
-Computational settings
+Computational settings for performing parallel computing either locally or on a cluster.
 # Fields
 $(FIELDS)
 """
 @with_kw struct ComputationSettings{T<:Integer}
     "Where computation is performed. 'local' and 'slurm' are supported presently"
     location::String = "local"    
-    "Number of processes. Giving 1 avoids multiprocessing (since adding only one worker would have negative effect on performance, as master is not used in the loop). On Slurm cluster this has to be equal to :nodes * :ntasks_per_node"
+    "Number of processes used by [`estimation`](@ref) and [`param_bootstrap`](@ref) functions. Giving 1 avoids adding any new process. On Slurm cluster this has to be equal to :nodes * :ntasks_per_node"
     num_procs::T = 1
-    "Number of tasks per thread. Giving somewhat more than the number of actual threads is probably a good idea to avoid idleness. Setting it equal to one implies singlethreading"
+    "Number of tasks spawn in [`estimation`](@ref) and [`param_bootstrap`](@ref) per process. Giving somewhat more than the number of actual threads is probably a good idea to avoid idleness. Setting it equal to one implies that only one thread per process will be used by functions in this package (even if more are present). Note that in this case multithreading within the internal function is possible as long that is written in a data-race free way."
     num_tasks::T = Threads.nthreads()*2
     "Number of threads to be used when starting each new process. Relevant only with multiprocessing. On Slurm cluster this has to be equal to :cpus_per_task"
     num_threads::T = Int(floor(Threads.nthreads()/num_procs))
