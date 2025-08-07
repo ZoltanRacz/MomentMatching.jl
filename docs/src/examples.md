@@ -302,6 +302,7 @@ In this case the only relevant field in `ComputationSettings` is `num_tasks`. If
 ```@example
 cs_1 = ComputationSettings(num_tasks=4)
 est_1 = estimation(setup; npmm=npest, cs=cs_1, saving=false);
+nothing #hide
 ```
 then in the global estimation phase, four tasks will be spawn, with each containing a quarter of all points where the objective function needs to be computed. These tasks are then queued at the available threads, the number of which depends on how Julia was started (as usual), in particular the option `-t/--threads` command line argument or  the `JULIA_NUM_THREADS` environment variable (see [here](https://docs.julialang.org/en/v1/manual/multi-threading/)). After the global phase is finished, the starting points for the local phase are also shared between 4 tasks.
 
@@ -312,16 +313,6 @@ then in the global estimation phase, four tasks will be spawn, with each contain
     
 !!! note
     When using multithreading, separate `PreallocatedContainers` are spawn for each task, and the containers of estimation outputs are accessed elementwise, hence data races are prevented as long as no other object is being overwritten in the objective function written by the user.
-
-The code below performs the global stage locally (`location="local"`) in three ways:
-1. Two processes (`num_procs=2`), each started with two threads (i.e., cores `num_threads=2`) and no multithreading (`num_tasks=1`).
-2. One process (default) with all avaliable threads (default with one process) and multithreading (`num_tasks` defaults to `Threads.nthreads()*2`).
-3. Two processes, each started with two threads and multithreading.
-!!! note
-    - Multiprocessing distributes the total number of points to be evaluated equally across the number of processes.
-    - The default option for `num_tasks` tries to minimize idleness and implies that multithreading is active by default.
-
-The difference between the first and the third case is that in the latter evaluation of points is distributed across the two threads while in the former two cores are used but evaluation of points is not parallelized across them.
 
 
 #### Multiprocessing
