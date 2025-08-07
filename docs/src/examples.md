@@ -22,11 +22,11 @@ are i.i.d. shocks. The aim is to estimate parameters ``(\rho, \sigma_\varepsilon
 
 Being about to run a structural estimation exercise, one usually already has a piece of code that given
  - a guess for the estimated parameters;
- - (possibly) a set of other parameters that are treated fixed;
+ - (possibly) a set of other parameters that are treated as fixed;
  - (possibly) a draw of random shocks;
  - (possibly) a set of empty arrays (to avoid allocation while evaluating the function)
 
-can compute a set of counterfactual moments, which can then be compared to its empirical counterpart.
+can compute a set of counterfactual moments, which can then be compared to their empirical counterpart.
 
 To utilize this package one has to wrap this objective function and its inputs into functions and abstract types defined within the package. This is shown below.
 
@@ -75,7 +75,7 @@ end
 nothing # hide
 ```
 
-In order to compute the necessary moments of large samples, one often needs to populate large arrays with realized values(in our case, of ``y_{i,t}``s). Creating separate containers for each guess for the parameter vector would be very costly, so instead this is done once before starting the estimation, and the data contained within will be repeatedly overwritten 
+In order to compute the necessary moments of large samples, one often needs to populate large arrays with realized values (in our case, of ``y_{i,t}``s). Creating separate containers for each guess for the parameter vector would be very costly, so instead this is done once before starting the estimation, and the data contained within will be repeatedly overwritten. 
 
 !!! note 
     When performing an estimation via parallel computing, these containers are internally generated separately for each thread, and hence data race is automatically avoided.
@@ -363,7 +363,7 @@ clustermanager_settings = Dict(:A => "x",
 We have specified the following options:
 - `location = "slurm"` the computation should be run on Slurm manager
 - `num_procs = 16` the total number of processes to be started (16 in this case). On Slurm this has to be equal to `:nodes * :ntasks_per_node`
-- `num_tasks = 8` the number of tasks per thread to be performed 
+- `num_tasks = 8` the number of tasks per process
 - `num_threads = 8` number of threads to be started in each Julia process. On Slurm this has to be equal to `:cpus_per_task` (see below)
 - `maxmem = 70` specifies the level in GB where aggressive garbage collection is triggered, should be less than `:mem` (see below) to avoid using more than the allocated resources
 - `clustermanager_settings` is a flexible `Dictionary` which passes the relevant options to Slurm. In this case we have specified:
