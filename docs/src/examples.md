@@ -519,10 +519,10 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector,
 
 end
 
+```
 !!! note
     Besides the number of estimated parameters, `modelname` could also influence in which way the moments determined by `typemom` are computed, making more general robustness checks also easy to implement.
 
-```
 We also redefine the function to present the results: 
 ```@example
 function MomentMatching.momentnames(mode::AR1Estimation, typemom::String)
