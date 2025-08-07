@@ -292,12 +292,27 @@ savefig("fbootstrap.svg"); nothing # hide
 ![](fbootstrap.svg)
 
 ## [Multithreading and multiprocessing](@id Example.Multi)
-The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (`Threads` module, distributes across cores within a process), multiprocessing (`Distributed` module, distributes across different processes) and/or a combination of the two (distributes across different processes and then across the cores within a process) by appropriately setting the structure `ComputationSettings`. We describe below how to do this locally and on a cluster.
-
-!!! danger 
-    While we have designed the package to make it hard to create data races, it is always the user's responsibility to check that this does not happen in their own model. For instance, it is not suggested to solve a model with multithreading if the latter is already active when looping over points in the parameter space. Use the macro `maythread` in the part of your code using multithreading to be able to set the latter on and off with the function `threading_inside` (both included in the package).
+The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (`Threads` module, distributes across cores within a process), multiprocessing (`Distributed` module, distributes across different processes) and/or a combination of the two (distributes across different processes and then across the cores within a process) by appropriately setting the structure `ComputationSettings`. To apply some given computational settings, one just need to pass it to the `estimation` function with the keyword argument `cs`. We describe below how to do this locally on one's computer and on a cluster.
 
 ### Local parallelization
+
+#### Multithreading
+
+In this case the only relevant field in `ComputationSettings` is `num_tasks`. If for example we run
+```@example
+cs_1 = ComputationSettings(num_tasks=4)
+est_1 = estimation(setup; npmm=npest, cs=cs_1, saving=false);
+```
+then in the global estimation phase, four tasks will be spawn, with each containing a quarter of all points where the objective function needs to be computed. These tasks are then queued at the available threads, the number of which depends on how Julia was started (as usual), in particular the option `-t/--threads` command line argument or  the `JULIA_NUM_THREADS` environment variable (see [here](https://docs.julialang.org/en/v1/manual/multi-threading/)). After the global phase is finished, the starting points for the local phase are also shared between 4 tasks.
+
+!!! note
+    - Choosing a higher number for `num_tasks` than `JULIA_NUM_THREADS` and thus overscheduling the threads might help prevent idleness. 
+    - The default value for `num_tasks` is `Threads.nthreads()*2`, implying that multithreading is **active by default** and that threads are overscheduled.
+    - Forcing single-threading is possible via setting `num_tasks` to 1.
+    
+!!! note
+    When using multithreading, separate `PreallocatedContainers` are spawn for each task, and the containers of estimation outputs are accessed elementwise, hence data races are prevented as long as no other object is being overwritten in the objective function written by the user.
+
 The code below performs the global stage locally (`location="local"`) in three ways:
 1. Two processes (`num_procs=2`), each started with two threads (i.e., cores `num_threads=2`) and no multithreading (`num_tasks=1`).
 2. One process (default) with all avaliable threads (default with one process) and multithreading (`num_tasks` defaults to `Threads.nthreads()*2`).
@@ -305,82 +320,36 @@ The code below performs the global stage locally (`location="local"`) in three w
 !!! note
     - Multiprocessing distributes the total number of points to be evaluated equally across the number of processes.
     - The default option for `num_tasks` tries to minimize idleness and implies that multithreading is active by default.
-    - The number of threads is controlled by using the option `-t/--threads` command line argument or by using the `JULIA_NUM_THREADS` environment variable (see [here](https://docs.julialang.org/en/v1/manual/multi-threading/)).
 
 The difference between the first and the third case is that in the latter evaluation of points is distributed across the two threads while in the former two cores are used but evaluation of points is not parallelized across them.
 
-Given that memory is not shared across the different processes, before running any code using multiprocessing we need to make sure that the required elements (functions, packages, structures, types...) are loaded in each of them. The function to do that is `load_on_procs`. Specifically, one writes a Julia script dedicated to loading all the required elements and calls it in `load_on_procs` which takes care of running it in every process. In our case such file is called `init.jl` and it basically loads the functions, packages, structures, types, etc. that we have used so far in this example (if you want to have a look, the script is available in the `docs` folder of the GitHub repository of the package). Be sure to specify the path correctly when calling `include`.
+
+#### Multiprocessing
+
+Given that memory is not shared across the different processes, before running any code using multiprocessing we need to make sure that the required elements (functions, packages, structures, types...) are loaded in each of them. The function to do that is `load_on_procs`. Specifically, one writes a Julia script dedicated to loading all the required elements and calls it in `load_on_procs` which takes care of running it in every process. In our case such file is called `minimalAR1.jl` and it basically loads the functions, packages, structures, types, etc. that we have used so far in this example (if you want to have a look, the script is available in the `test/examples` folder of the GitHub repository of the package). Be sure to specify the path correctly when calling `include`.
 
 ```julia-repl
 julia> using Distributed
-julia> using ClusterManagers
 julia> function MomentMatching.load_on_procs(mode::AR1Estimation)
-    return @everywhere begin include("init.jl") end
+    return @everywhere begin include("minimalAR1.jl") end
 end
 ```
 
-Now we are ready to perform the estimation in all the three ways just described. Let's first set up each `ComputationSettings` structure:
+Besides telling Julia what to run on each process when starting them, we also need to specify
+ * how many processes we want
+ * with how many threads the new Julia instances should start
+ 
+via the `num_proc` and `num_threads` fields of the `ComputationalSettings` structure. Note that when multiprocessing is active, `num_tasks` will set the number of tasks per process.
 
-```julia-repl
-julia> cs_1 = ComputationSettings(location="local", num_procs=2, num_threads=2, num_tasks=1);
+For example,
+ - `ComputationSettings(num_procs=8, num_threads=1, num_tasks=1)` starts 8 processes without any multithreading on each. At most 8 points can be evaluated at the same time.
+ - `ComputationSettings(num_procs=8, num_threads=4, num_tasks=8)` starts 8 processes with 4 threads and 8 tasks on each. On each process, 4 tasks can immediately be scheduled to threads immediately, while 4 other ones will wait. At most 32 points can be evaluated at the same time.
 
-julia> cs_2 = ComputationSettings(location="local");
+!!! note
+    When via the `estimation` function both the global and local phases are performed in one go, the same specified computational settings are applied to both. It is also possible to run each phase separately with its own computational settings (see the section [`Only global or only local`](@ref Example.Onlyone) the description of how to run the two stages separately). `ComputationSettings` also works in the function performing bootstrapping.
 
-julia> cs_3 = ComputationSettings(location="local", num_procs=2, num_threads=2);
-```
-Then draw common shocks to test equivalence of methods later:
-
-```julia-repl
-julia> auxest = AuxiliaryParameters(AR1Estimation("ar1estim"), "");
-
-julia> preshest = PredrawnShocks(AR1Estimation("ar1estim"), "", "", auxest);
-```
-And finally run the estimations with the three different specifications:
-
-```julia-repl
-julia> est_1 = estimation(setup; npmm=npest, presh=preshest, cs=cs_1, saving=false);
-Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:23
-Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:52
-
-julia> est_2 = estimation(setup; npmm=npest, presh=preshest, cs=cs_2, saving=false);
-Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:05
-Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:22
-
-julia> est_3 = estimation(setup; npmm=npest, presh=preshest, cs=cs_3, saving=false);
-Performing global stage... 100%|██████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:00:25
-Performing local stage... 100%|███████████████████████████████████████████████████████████████████████████████████████████████████| Time: 0:01:41
-```
-Sanity check that results are the same (they might differ slightly from the estimation at the beginning since we have drawn new shocks and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage):
-```julia-repl
-julia> tableest(setup,est_1);
-3×2 DataFrame
- Row │ Variable  Point estimate 
-     │ String    Float64        
-─────┼──────────────────────────
-   1 │ ρ                  0.89
-   2 │ σϵ                 0.326
-   3 │ σν                 0.542
-
-julia> tableest(setup,est_2);
-3×2 DataFrame
- Row │ Variable  Point estimate 
-     │ String    Float64        
-─────┼──────────────────────────
-   1 │ ρ                  0.89
-   2 │ σϵ                 0.326
-   3 │ σν                 0.542
-
-julia> tableest(setup,est_3);
-3×2 DataFrame
- Row │ Variable  Point estimate 
-     │ String    Float64        
-─────┼──────────────────────────
-   1 │ ρ                  0.89
-   2 │ σϵ                 0.326
-   3 │ σν                 0.542
-```
-
-Since in the code above both the global and local phases are performed, the specified computational settings are applied to both. It is of course possible to run each phase separately with its own computational settings (see the section [`Only global or only local`](@ref Example.Onlyone) the description of how to run the two stages separately). `ComputationSettings` also works in the function performing bootstrapping.
+!!! danger 
+    While the package is designed in a way to prevent data races in the estimation and bootstrapping routines, it is always the user's responsibility to check that this does not happen in their own model. In addition, it is best to avoid applying multithreading in one's model code within `obj_mom!` if multithreading is already active when looping over points in the parameter space.
 
 ### Parallelization on a cluster
 Currently, our package works only on clusters using Slurm Workload Manager. This is an example on how to set `ComputationSettings` for running the estimation on Slurm:
@@ -405,7 +374,7 @@ We have specified the following options:
 - `num_procs = 16` the total number of processes to be started (16 in this case). On Slurm this has to be equal to `:nodes * :ntasks_per_node`
 - `num_tasks = 8` the number of tasks per thread to be performed 
 - `num_threads = 8` number of threads to be started in each Julia process. On Slurm this has to be equal to `:cpus_per_task` (see below)
-- `maxmem = 70` specifies the level in GB where aggressive garbage collection is triggered, should be less than `:mem` (see below)
+- `maxmem = 70` specifies the level in GB where aggressive garbage collection is triggered, should be less than `:mem` (see below) to avoid using more than the allocated resources
 - `clustermanager_settings` is a flexible `Dictionary` which passes the relevant options to Slurm. In this case we have specified:
     - `:A` the project account to be charged for the computational allocation requested
     - `:job_name` the name of the job 
@@ -421,10 +390,14 @@ We have specified the following options:
 Users can thus perform multiprocessing, multithreading and/or a combination of the two also on a cluster which uses Slurm by properly specifying these options. Including `ComputationSettings` defined in the way just explained in the `estimation` command will automatically ensure that the latter is run with Slurm.
 
 !!! note 
-    As explained in the example, the options to be passed to Slurm are related to the options to be specified in the structure `ComputationSettings` of our package. We are aware of the slight abuse of notation of the word *task*: in our package it refers to the number of tasks for multithreading, while in Slurm to the number of processes per node. This is a legacy from having added the Slurm option after the local one, and it might be changed in future versions.
+    The word *task* has different meanings in Slurm and in this package: in our package (in line with Julia terminology) it refers to the number of tasks for multithreading, while in Slurm it means the number of processes per node.
+
+
+!!! note 
+    Applying this package with different cluster managing systems than Slurm should be possible via a slight modification of the `Distributed.addprocs(cs::ComputationSettings)` function. Any related pull request is greatly appreciated!
 
 !!! note
-    - Hardware configuration and rules for Slurm options to be included might differ across HPCs. It's the user's responsibility to make sure that the options conform with their specific case. 
+    - Hardware configuration and rules for Slurm options to be included might differ across HPCs. The user should make sure that the options conform with their specific case. 
     - If on a cluster, it's important to remember to set up correctly the required environment by loading the packages and functions before running the estimation.
     - If one runs the code from an open Julia session in the HPC then the Slurm command called is `srun`. It should be possible to use also `sbatch` by writing a script that calls the code.
 
@@ -570,10 +543,10 @@ est_glo = estimation(setup; npmm=npest_glo, saving=false)
 est_loc = estimation(setup; npmm=npest_loc, xlocstart = est_glo.xglo[1:10], saving=false) 
 nothing # hide
 ```
-Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option. See the section [`Multithreading and multiprocessing`](@ref Example.Multi) for an example.  
+Note that in this example results might differ slightly from the estimation above because new shocks have been drawn (and because of the low maximum time - for exemplificatory purposes - specified for the solver in the local stage). It is possible to draw the shocks once and then pass them across different calls of `estimation` with the `presh` option.
 
 ### Merging results
-For very long estimation exercises it can be useful to split the evaluation of global and/or local points across different calls of `estimation` and save the results after each call (so that if something goes wrong one does not need to recompute everything from scratch). For instance, to evaluate 10000 global points one can call `estimation` four times, each time evaluating 2500 points and then saving the results (choosing which global points to evaluate in a given parameter space can be achieved through the option `sobolinds` in `estimation`). The function to achieve this is `mergeglo`. Below an example with 100 global points evaluated with two calls:
+For very long estimation exercises it can be useful to split the evaluation of global and/or local points across different calls of `estimation` and save the results after each call (so that if something goes wrong one does not need to recompute everything from scratch). For instance, to evaluate 10000 global points one can call `estimation` four times, each time evaluating 2500 points and then saving the results in one merged file (choosing which global points to evaluate in a given parameter space can be achieved through the option `sobolinds` in `estimation`). The function to achieve this is `mergeglo`. Below an example with 100 global points evaluated with two calls:
 
 ```@example
 npest_glo_batch1 = NumParMM(setup; sobolinds=1:50, onlyglo=true)
@@ -588,6 +561,3 @@ nothing # hide
 In this case, the estimation results to be merged were already in memory when merging, but one can of course load any already saved estimation result (again, note that results might be different from previous estimations for the same reasons described before).
 
 A similar procedure can be applied for the local stage with the function `mergeloc` (in this case the user needs to specify the starting points to be evaluated with the option `xlocstart` in `estimation`). Finally, the function `mergegloloc` allows to merge together separate global and local results.
-
-!!! danger
-    To create the merged estimation result structure, `mergeglo` uses AuxiliaryParameters, PredrawnShocks and ParMM (the latter is an auxiliary structure to initialize all the estimation inputs, see relevant code in `estimation.jl`) structures from first entry of the vector of results. The same holds for `mergeloc` with the addition that also the global results used as input come from the first entry of the vector of results. Finally `mergegloloc` assumes that global and local results to be merged are already ordered (`mergeglo` and `mergeloc` instead obviously perform reordering).
