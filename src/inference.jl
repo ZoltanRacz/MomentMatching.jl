@@ -369,6 +369,8 @@ function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResul
     xs, moms = param_bootstrap(estset, mmsolu, auxmomsim, Nseeds, Nsamplesim, cs, errorcatching)
     sm = sandwich_matrix(estset, mmsolu, moms)
     W = efficient_Wmat(moms)
+    fill!(sm,NaN) # asymptotic matrix invalid, set to NA for now
+    fill!(W,NaN)
     bootres = BootstrapResult(moms, xs, sqrt.(diag(sm) / Ndata), W)
     saving && save(estimation_result_path() * estimation_name(estset, npmm, filename_suffix) * "_bootstrap" * ".jld", "bootres", bootres)
     return bootres
@@ -389,6 +391,7 @@ function Jtest(estset::EstimationSetup, mmsolu::EstimationResult, boot::Bootstra
     @unpack mode, modelname, typemom = estset
     @unpack pmm, xloc, momloc = mmsolu
     @unpack W = boot
+    @warn("Weighting matrix invalid. Avoid using this function for now (which for this reason should now return an error on purpose).")
     g = mdiff(mode, momloc[1], pmm.momdat, pmm.mmomdat)
     J = n * g' * W * g
     df = length(momloc[1]) - length(xloc[1])
