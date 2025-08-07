@@ -1,4 +1,4 @@
-## Quidelines for contributing code
+## Guidelines for contributing code
  - **main** exists continuously and is always expected to run without errors. The latest tagged commit on **main** contains the latest version we want users to run. The newest commit on **main** corresponds to a development version.
  - Every single new feature or fix belongs to a separate, dedicated temporary branch. Conceptually different things shouldn't share one temporary branch.
      - These temporary branches are allowed to fail while development, it is more important to continuously push stuff online than making sure everything online is perfect.
