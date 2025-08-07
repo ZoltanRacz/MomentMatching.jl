@@ -480,7 +480,7 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector,
   aux::AuxiliaryParameters, presh::PredrawnShocks, preal::PreallocatedContainers;
    saving_model::Bool=false, filename::String="")
     
-    if typemom == ""
+    if modelname == ""
         (ρ, σϵ, σν) = x
     elseif modelname == "noise_off" # we set the last parameter to zero
         (ρ, σϵ, σν) = vcat(x, 0.0)
