@@ -482,7 +482,7 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector,
     
     if typemom == ""
         (ρ, σϵ, σν) = x
-    elseif typemom == "onlytwo" # we set the last parameter to zero
+    elseif modelname == "noise_off" # we set the last parameter to zero
         (ρ, σϵ, σν) = vcat(x, 0.0)
     end
 
@@ -518,6 +518,10 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector,
     end
 
 end
+
+!!! note
+    Besides the number of estimated parameters, `modelname` could also influence in which way the moments determined by `typemom` are computed, making more general robustness checks also easy to implement.
+
 ```
 We also redefine the function to present the results: 
 ```@example
@@ -543,8 +547,17 @@ tableest(setup_noise_off, est_noise_off)
 tablemoms(setup_noise_off, est_noise_off)
 ```
 
-!!! note 
-    In this example we have shown how to adapt the procedure to make it `modelname`- and `typemom`-specific. One can of course make it specific for just for one of the two. For instance, if there are more moments than parameters one could just change `typemom` to estimate the original model with different sets of moments.
+Alternatively, one could also estimate the restricted model by targeting the original 
+three moments as follows. In this case the system is overidentified, and hence the moments cannot be matched exactly.
+
+```@example
+setup_noise_off_threemoments = EstimationSetup(AR1Estimation("ar1estim"), "noise_off", "");
+est_noise_off_threemoments = estimation(setup_noise_off_threemoments; npmm=npest, saving=false);
+tableest(setup_noise_off_threemoments, est_noise_off_threemoments)
+```
+```@example
+tablemoms(setup_noise_off_threemoments, est_noise_off_threemoments)
+```
 
 ### [Only global or only local](@id Example.Onlyone)
 In the main example above both the global and local stages were performed in the same call. It is possible to perform only the global or only the local stage with the options `onlyglo` and `onlyloc` available in `NumParMM`: 
