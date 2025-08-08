@@ -364,16 +364,16 @@ clustermanager_settings = Dict(:A => "x",
 ```
 We have specified the following options:
 - `location = "slurm"` the computation should be run on Slurm manager
-- `num_procs = 16` the total number of processes to be started. On Slurm this has to be equal to `:nodes * :ntasks_per_node`
-- `num_tasks = 8` the number of tasks per process
-- `num_threads = 8` number of threads to be started in each Julia process. On Slurm this has to be equal to `:cpus_per_task` (see below)
+- `num_procs = 16` the total number of processes to be started (16 in this case). On Slurm this has to be equal to `:nodes * :ntasks_per_node`
+- `num_tasks = 8` the number of tasks per process (8 in this case)
+- `num_threads = 8` number of threads to be started in each Julia process (8 in this case). On Slurm this has to be equal to `:cpus_per_task` (see below)
 - `maxmem = 70` specifies the level in GB where aggressive garbage collection is triggered, should be less than `:mem` (see below) to avoid using more than the allocated resources
 - `clustermanager_settings` is a flexible `Dictionary` which passes the relevant options to Slurm. In this case we have specified:
     - `:A` the project account to be charged for the computational allocation requested
     - `:job_name` the name of the job 
-    - `:nodes` how many HPC nodes are to be used
-    - `:ntasks_per_node` how many processes per node have to be started, must be less than the number of cores per node 
-    - `:cpus_per_task` how many cores are to be used per process, must be less than number of cores on node
+    - `:nodes` how many HPC nodes are to be used (4 in this case)
+    - `:ntasks_per_node` how many processes per node have to be started (4 in this case), must be less than the number of cores per node 
+    - `:cpus_per_task` how many cores are to be used per process (8 in this case), must be less than number of cores on node
     - `:exclusive` that the job allocation cannot share nodes with other running jobs
     - `:mem` the total memory requested per node
     - `:time` the total time requested
