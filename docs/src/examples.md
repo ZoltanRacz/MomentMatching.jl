@@ -103,6 +103,8 @@ function PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom:
 
     return AR1PrealCont(z, y, ylag1, ylag2, mat)
 end
+
+nothing # hide
 ```
 
 
@@ -363,8 +365,8 @@ clustermanager_settings = Dict(:A => "x",
 We have specified the following options:
 - `location = "slurm"` the computation should be run on Slurm manager
 - `num_procs = 16` the total number of processes to be started (16 in this case). On Slurm this has to be equal to `:nodes * :ntasks_per_node`
-- `num_tasks = 8` the number of tasks per process
-- `num_threads = 8` number of threads to be started in each Julia process. On Slurm this has to be equal to `:cpus_per_task` (see below)
+- `num_tasks = 8` the number of tasks per process (8 in this case)
+- `num_threads = 8` number of threads to be started in each Julia process (8 in this case). On Slurm this has to be equal to `:cpus_per_task` (see below)
 - `maxmem = 70` specifies the level in GB where aggressive garbage collection is triggered, should be less than `:mem` (see below) to avoid using more than the allocated resources
 - `clustermanager_settings` is a flexible `Dictionary` which passes the relevant options to Slurm. In this case we have specified:
     - `:A` the project account to be charged for the computational allocation requested
