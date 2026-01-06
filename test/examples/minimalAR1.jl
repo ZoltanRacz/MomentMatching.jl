@@ -45,7 +45,7 @@ end
 # Recover moments from the data
 
 function MomentMatching.datamoments(mode::AR1Estimation, typemom::String)
-    momtrue = [0.8, 0.6, 0.4] # made up numbers
+    momtrue = [0.8, 0.45, 0.4] # made up numbers
 
     mmomtrue = deepcopy(momtrue)
 
