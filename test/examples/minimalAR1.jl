@@ -84,11 +84,11 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector, m
             preal.y[n] = preal.z[n] + σν * presh.νs[n, t]
         end
         if t > 2
-            preal.mat[3, t] = cov(preal.y, preal.ylag2)
+            preal.mat[3, t] = cov_noalloc(preal.y, preal.ylag2)
             copy!(preal.ylag2, preal.ylag1)
         end
         if t > 1
-            preal.mat[2, t] = cov(preal.y, preal.ylag1)
+            preal.mat[2, t] = cov_noalloc(preal.y, preal.ylag1)
             copy!(preal.ylag1, preal.y)
         end
         preal.mat[1, t] = var(preal.y)
@@ -104,6 +104,17 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector, m
     mom[3] = mean(@view preal.mat[3, aux.Tdis:end])
     momnorm[3] = mom[3]
 
+end
+
+function cov_noalloc(x,y)
+    xbar = mean(x)
+    ybar = mean(y)
+    cov = 0.0
+    N = length(x)
+    for i in eachindex(x)
+        cov += (x[i]-xbar)*(y[i]-ybar)
+    end
+    return cov/(N-1)
 end
 
 function MomentMatching.momentnames(mode::AR1Estimation, typemom::String)
