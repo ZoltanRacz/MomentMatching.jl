@@ -19,7 +19,7 @@ struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters
     Tdis::T
 end
 
-AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
+MomentMatching.AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
 
 struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     "preallocated array for persistent shocks"
@@ -28,7 +28,7 @@ struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     νs::Array{S,2}
 end
 
-function PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
+function MomentMatching.PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
     return AR1PreShocks(randn(aux.Nsim, aux.Tsim),
         randn(aux.Nsim, aux.Tsim))
 end
@@ -60,7 +60,7 @@ struct AR1PrealCont{S<:AbstractFloat} <: PreallocatedContainers
     mat::Array{S,2}
 end
 
-function PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
+function MomentMatching.PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
 
     z = Vector{Float64}(undef, aux.Nsim)
     y = Vector{Float64}(undef, aux.Nsim)
