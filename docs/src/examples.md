@@ -52,7 +52,7 @@ struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters
     Tdis::T
 end
 
-AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
+MomentMatching.AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
 
 nothing # hide
 ```
@@ -67,7 +67,7 @@ struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     νs::Array{S,2}
 end
 
-function PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String,aux::AuxiliaryParameters)
+function MomentMatching.PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String,aux::AuxiliaryParameters)
     return AR1PreShocks(randn(aux.Nsim, aux.Tsim),
         randn(aux.Nsim, aux.Tsim))
 end
@@ -91,7 +91,7 @@ struct AR1PrealCont{S<:AbstractFloat} <: PreallocatedContainers
     mat::Array{S,2}
 end
 
-function PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String,
+function MomentMatching.PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String,
  aux::AuxiliaryParameters)
 
     z = Vector{Float64}(undef, aux.Nsim)
@@ -294,13 +294,13 @@ savefig("fbootstrap.svg"); nothing # hide
 ```
 ![](fbootstrap.svg)
 
-If the resulting standard errors are surprisingly large, it is worth checking whether they are chiefly generating by varying the seed. This would be a problem, since in this case estimation results might be affected by the particular set of random shocks used during the estimation. Such a conclusion would suggest that enlarging simulated samples during estimation might improve accuracy. This can be checked by running
+If the resulting standard errors are surprisingly large, it is worth checking whether they are chiefly generating by varying the seed. This would be a problem, since in this case estimation results might be affected by the particular set of random shocks used during the estimation. Such a conclusion would suggest that enlarging simulated samples during estimation might improve accuracy. This can be checked by running bootstrapping with the `onlyvaryseeds = true` option, which performs the bootstrap by using the data moments instead of simulated ones, varying only the seed between bootstrap draws. 
 ```@example
 boot_seed = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, onlyvaryseeds = true);
 
 tableest(setup, est, boot_seed)
 ```
-which performs bootstrapping by using the data moments instead of simulated ones, varying only the seed between bootstrap draws. In this case we find much smaller errors in this scenario, hence most of the variation comes from simulated moments.
+In this case we find much smaller errors in this scenario, hence most of the variation comes from simulated moments.
 
 ## [Multithreading and multiprocessing](@id Example.Multi)
 The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (`Threads` module, distributes across cores within a process), multiprocessing (`Distributed` module, distributes across different processes) and/or a combination of the two (distributes across different processes and then across the cores within a process) by appropriately setting the structure `ComputationSettings`. To apply some given computational settings, one just need to pass it to the `estimation` function with the keyword argument `cs`. We describe below how to do this locally on one's computer and on a cluster.
