@@ -111,36 +111,41 @@ The resulting distribution of estimated parameters gives us the bootstrap confid
 For diagnostic reasons, we repeat this procedure with Nseeds number of seeds, 
 if results vary a lot with different seeds, it is recommended to restart the whole estimation with bigger simulation parameters.
 """
-function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, cs::ComputationSettings, errorcatching::Bool)
+function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nboot::Integer, cs::ComputationSettings, errorcatching::Bool,onlyvaryseeds::Bool)
     @unpack mode, modelname, typemom = estset
     @unpack aux, xloc, npmm = mmsolu
     mmsolu.npmm.onlyglo && throw(ArgumentError("Should be applied to result of a local estimation"))
     bestx = xloc[1]
-    xlocstart = fill(bestx,Nseeds * Nsamplesim)
+    xlocstart = fill(bestx, Nboot)
     momleng = length(mmsolu.pmm.momdat)
 
     # simulate data N_sample times using the estimated parameters, and save resulting alternative moments
-    moms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nsamplesim]
-    momnorms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nsamplesim]
-    prealc = PreallocatedContainers(estset, auxmomsim)
-    for sample_i in 1:Nsamplesim
-        obj_mom!(moms[sample_i], momnorms[sample_i], mode, bestx, modelname, typemom, auxmomsim, PredrawnShocks(estset, auxmomsim), prealc)
+    if onlyvaryseeds
+        moms = fill(mmsolu.pmm.momdat,Nboot)
+        momnorms = fill(mmsolu.pmm.mmomdat,Nboot)
+    else
+        moms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nboot]
+        momnorms = [Vector{Float64}(undef, momleng) for sample_i in 1:Nboot]
+        prealc = PreallocatedContainers(estset, auxmomsim)
+        for sample_i in 1:Nboot
+            obj_mom!(moms[sample_i], momnorms[sample_i], mode, bestx, modelname, typemom, auxmomsim, PredrawnShocks(estset, auxmomsim), prealc)
+        end
     end
 
     # recenter estimation around originially estimated moments (refer to formula in eventual doc)
     mdifrec = mdiff(mode, mmsolu.momloc[1], mmsolu.pmm.momdat, mmsolu.pmm.mmomdat)
 
-    pmms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nsamplesim] # re-estimation initiated with alternative moments instead of moments from data
+    pmms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nboot] # re-estimation initiated with alternative moments instead of moments from data
 
-    presh_repeat = [PredrawnShocks(estset, aux) for seed_i in 1:Nseeds] # Nseeds different aux structure for each alternative moment
+    presh_repeat = [PredrawnShocks(estset, aux) for seed_i in 1:Nboot] # Nseeds different aux structure for each alternative moment
 
     @assert(!threading_inside() || cs.num_tasks==1)
 
-    prog = Progress(Nseeds * Nsamplesim; desc="Performing bootstrap...", color = :blue)
+    prog = Progress(Nboot; desc="Performing bootstrap...", color = :blue)
     chnl = RemoteChannel(() -> Channel{Bool}(), 1)
     if cs.num_procs==1 && cs.location == "local"
-        xl = Array{Float64}(undef, length(xlocstart[1]), Nseeds * Nsamplesim)
-        chunk_procl = 1:1:(Nseeds * Nsamplesim)
+        xl = Array{Float64}(undef, length(xlocstart[1]), Nboot)
+        chunk_procl = 1:1:(Nboot)
         @sync begin
             @async while take!(chnl)
                 ProgressMeter.next!(prog)
@@ -157,7 +162,7 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
         addprocs(cs)
         load_on_procs(estset.mode)
 
-        xl = distribute(Array{Float64}(undef,length(xlocstart[1]), Nseeds * Nsamplesim), dist = [1,cs.num_procs])
+        xl = distribute(Array{Float64}(undef,length(xlocstart[1]), Nboot), dist = [1,cs.num_procs])
 
         @sync begin
             @async while take!(chnl)
@@ -179,7 +184,7 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
 
     end
 
-    xl = reshape(Array(xl),length(mmsolu.xloc[1]), Nseeds, Nsamplesim)
+    xl = reshape(Array(xl),length(mmsolu.xloc[1]), Nboot)
     
     if cs.num_procs > 1 || cs.location == "slurm"
         rmprocs(workers())
@@ -201,14 +206,8 @@ function singlethread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::
     moml = Matrix{Float64}(undef, length(pmms[1].momdat),length(chunk_procl))
     momnorml = Vector{Float64}(undef, length(pmms[1].momdat))
     preal = PreallocatedContainers(estset, aux)
-    Nseeds = length(preshs) 
-    Nsamplesim = length(pmms) 
-    cind = CartesianIndices((Nseeds, Nsamplesim))
     for (locind, fullind) in enumerate(chunk_procl)
-        seed_i = cind[fullind][1]
-        sample_i = cind[fullind][2]
-
-        opt_loc!(objl, localpart(xl), moml, momnorml, convl, npmm.local_opt_settings, estset, aux, preshs[seed_i], preal, pmms[sample_i], xcands[fullind], locind, errorcatching)
+        opt_loc!(objl, localpart(xl), moml, momnorml, convl, npmm.local_opt_settings, estset, aux, preshs[fullind], preal, pmms[fullind], xcands[fullind], locind, errorcatching)
         put!(chnl, true)
     end
 end
@@ -219,9 +218,6 @@ $(TYPEDSIGNATURES)
 Performs the local stage with multiple threads.
 """
 function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, preshs::Vector{W}, xcands::AbstractVector, errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM, W<:PredrawnShocks}
-    Nseeds = length(preshs) 
-    Nsamplesim = length(pmms) 
-    cind = CartesianIndices((Nseeds, Nsamplesim))
     chunks_th = chunks(chunk_procl; n=cs.num_tasks)
     tasks = map(chunks_th) do chunk
         Threads.@spawn begin
@@ -233,9 +229,7 @@ function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::N
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk_procl[chunk[n]]
-                seed_i = cind[fullind][1]
-                sample_i = cind[fullind][2]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, convl_ch, npmm.local_opt_settings, estset, aux, preshs[seed_i], preal, pmms[sample_i], xcands[fullind], n, errorcatching)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, convl_ch, npmm.local_opt_settings, estset, aux, preshs[fullind], preal, pmms[fullind], xcands[fullind], n, errorcatching)
 
                 put!(chnl, true)
             end
@@ -338,7 +332,7 @@ $(FIELDS)
     "simulated moments"
     moms::Array{S,2}
     "simulated parameter values"
-    xs::Array{S,3}
+    xs::Array{S,2}
     "asymptotic standard errors"
     sd_asymp::Vector{S}
     "efficient weighting matrix"
@@ -363,12 +357,12 @@ Performs bootstrap and computes related quantities.
 - saving: Logical, true if results are to be saved.
 - filename_suffix: String with suffix to be used for file name when saving.
 """
-function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nseeds::Integer, Nsamplesim::Integer, Ndata::Integer; cs::ComputationSettings = ComputationSettings(), saving::Bool=false, filename_suffix::String="", errorcatching::Bool = true)
+function param_bootstrap_result(estset::EstimationSetup, mmsolu::EstimationResult, auxmomsim::AuxiliaryParameters, Nboot::Integer, Ndata::Integer; cs::ComputationSettings = ComputationSettings(), saving::Bool=false, filename_suffix::String="", errorcatching::Bool = true, onlyvaryseeds::Bool = false)
     @unpack mode, modelname, typemom = estset
     @unpack npmm = mmsolu
-    xs, moms = param_bootstrap(estset, mmsolu, auxmomsim, Nseeds, Nsamplesim, cs, errorcatching)
+    xs, moms = param_bootstrap(estset, mmsolu, auxmomsim, Nboot, cs, errorcatching, onlyvaryseeds)
     sm = sandwich_matrix(estset, mmsolu, moms)
-    W = efficient_Wmat(moms)
+    W = zeros(size(moms,1),size(moms,1))
     fill!(sm,NaN) # asymptotic matrix invalid, set to NA for now
     fill!(W,NaN)
     bootres = BootstrapResult(moms, xs, sqrt.(diag(sm) / Ndata), W)
