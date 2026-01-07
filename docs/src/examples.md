@@ -274,24 +274,33 @@ Even if the model is correctly specified, there are two reasons why parameters a
 2. If evaluating the objecting function involves uncertainty, the whole estimation procedure is conducted with one particular draw of shocks. This makes results potentially sensitive to this specific realization of shocks.
 
 One can gauge the joint effect of these forces on the precision of the estimates via parametric bootstrapping. 
- - First, using the obtained parameter estimates, ``N_{sample}`` independent samples are created to mimic the uncertainty in the data generating process. The targeted moments are then computed from each of these samples. Note that the size of the simulated samples have to coincide with the actual data sample which was used to compute the data moments.
-  - Second, if computing the objective function involves random draws, ``N_{seed}`` number of different shocks are draws.
+ - First, using the obtained parameter estimates, ``N_{boot}`` independent samples are created to mimic the uncertainty in the data generating process. The targeted moments are then computed from each of these samples. Note that the size of the simulated samples have to coincide with the actual data sample which was used to compute the data moments.
+  - Second, if computing the objective function involves random draws, for each simulated vector of moments a different set of shocks is drawn.
 
-Then for each pair of alternative moments and seeds, the local stage of the estimation is repeated starting from the best local point of the original estimation. The distribution of the resulting ``N_{sample} \cdot N_{seed}`` new estimates can then be used to generate confidence intervals.
+Then for each pair of alternative moments and seeds, the local stage of the estimation is repeated starting from the best local point of the original estimation. The distribution of the resulting ``N_{boot}`` new estimates can then be used to generate confidence intervals.
 
 ```@example
 Tdis = 20 # burn in
 Tdata = 40 # true data length
 Ndata = 500 # true sample size
-Nsample = 15 # number of samples used for bootstrap
-Nseed = 15 # number of shock simulations used for bootstrap
+Nboot = 200 # number of draws used for bootstrap
 auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
-boot = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false);
+boot = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata);
+
+tableest(setup, est, boot)
 
 fbootstrap(setup, est, boot)
 savefig("fbootstrap.svg"); nothing # hide
 ```
 ![](fbootstrap.svg)
+
+If the resulting standard errors are surprisingly large, it is worth checking whether they are chiefly generating by varying the seed. This would be a problem, since in this case estimation results might be affected by the particular set of random shocks used during the estimation. Such a conclusion would suggest that enlarging simulated samples during estimation might improve accuracy. This can be checked by running
+```@example
+boot_seed = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, onlyvaryseeds = true);
+
+tableest(setup, est, boot_seed)
+```
+which performs bootstrapping by using the data moments instead of simulated ones, varying only the seed between bootstrap draws. In this case we find much smaller errors in this scenario, hence most of the variation comes from simulated moments.
 
 ## [Multithreading and multiprocessing](@id Example.Multi)
 The global and local phases of the estimation procedure require evaluating the objective function at many points of the parameter space. In our package this task can be parallelized with multithreading (`Threads` module, distributes across cores within a process), multiprocessing (`Distributed` module, distributes across different processes) and/or a combination of the two (distributes across different processes and then across the cores within a process) by appropriately setting the structure `ComputationSettings`. To apply some given computational settings, one just need to pass it to the `estimation` function with the keyword argument `cs`. We describe below how to do this locally on one's computer and on a cluster.
