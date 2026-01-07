@@ -226,6 +226,26 @@ function tableest(estset::EstimationSetup, mmsolu::EstimationResult; glob::Bool=
     return df
 end
 
+function tableest_inner(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo)
+    @unpack mode, modelname = estset
+    @unpack npmm, xloc = mmsolu
+    @unpack xs, sd_asymp = boot
+
+    df = tableest_inner(estset, mmsolu; glob)
+
+    bs_sds = [sqrt(var(xs[i, :])) for i in axes(xs, 1)]
+    bs_ci = [round.(quantile(xs[i, :], [cilev / 2, 1.0 - cilev / 2]), digits=dgt) for i in axes(xs, 1)]
+    bs_bcci = [round.( BCpercentileCI(xloc[1][i], xs[i, :], cilev), digits=dgt) for i in axes(xs, 1)]
+
+    #df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=dgt)
+    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=dgt)
+    df[:, "Bootstrapped $(100*(1-cilev))% CI"] = bs_ci
+    df[:, "Bootstrapped $(100*(1-cilev))% BC CI"] = bs_bcci
+    #df[:, :("Seed share of variance")] = round.(ratios, digits=dgt)
+
+    return df
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -243,19 +263,10 @@ Creates DataFrame with parameter estimates and optionally saves it, bootstrap ca
 """
 function tableest(estset::EstimationSetup, mmsolu::EstimationResult, boot::BootstrapResult; cilev::Real=0.05, dgt::Int64=3, glob::Bool=mmsolu.npmm.onlyglo, saving::Bool=false, filename_suffix::String="")
     @unpack mode, modelname = estset
-    @unpack npmm = mmsolu
+    @unpack npmm, xloc = mmsolu
     @unpack xs, sd_asymp = boot
 
-    df = tableest_inner(estset, mmsolu; glob)
-
-    bs_sds = [sqrt(var(xs[i, :, :])) for i in axes(xs, 1)]
-    ratios = [mean(var(xs[i, :, :]; dims=1)) / var(xs[i, :, :]) for i in axes(xs, 1)]
-    bs_ci = [round.(quantile(xs[i, :, :][:], [cilev / 2, 1.0 - cilev / 2]), digits=dgt) for i in axes(xs, 1)]
-
-    df[:, :("Asymptotic standard errors")] = round.(sd_asymp, digits=dgt)
-    df[:, :("Bootstrapped standard errors")] = round.(bs_sds, digits=dgt)
-    df[:, "Bootstrapped $(100*(1-cilev))% CI"] = bs_ci
-    df[:, :("Seed share of variance")] = round.(ratios, digits=dgt)
+    df = tableest_inner(estset, mmsolu, boot; cilev, dgt, glob)
 
     saving && CSV.write(estimation_output_path() * estimation_name(estset, npmm, filename_suffix) * "_tableest_boot.csv", df)
 
@@ -263,6 +274,21 @@ function tableest(estset::EstimationSetup, mmsolu::EstimationResult, boot::Boots
 
     return df
 end
+
+"""
+computes bias corrected percentile confidence intervals for bootstrapped sample
+
+Following Hansen's book, original reference is Efron (1982). Unlike the 'naive' percetile interval, its coverage probability is correct even for non-symmetic distributions.
+"""
+function BCpercentileCI(xhat::Real, xs::AbstractVector, cilev::Real)
+    B = length(xs)
+    p = sum(xs.<=xhat)/B
+    z0 = quantile(Normal(),p)
+    lowlim = quantile(xs, cdf(Normal(),quantile(Normal(),cilev / 2)+2*z0) )
+    highlim = quantile(xs, cdf(Normal(),quantile(Normal(),1.0 - cilev / 2)+2*z0) )
+    return [lowlim, highlim]
+end
+
 
 """
 $(TYPEDSIGNATURES)
@@ -458,6 +484,8 @@ fbootstrap
     @unpack npmm, xloc = mmsolu
     @unpack xs = boot
 
+    df = tableest_inner(estset, mmsolu, boot; cilev, dgt = 8 , glob = false)
+
     labs = labels(estset)
     layout := size(xs, 1)
     merge!(plotattributes, fonts())
@@ -491,7 +519,7 @@ fbootstrap
                 linecolor := "red"
                 width := 1.5
                 style := :dashdot
-                quantile(xdist, [cilev / 2, 1.0 - cilev / 2], sorted=true)
+                df[!,"Bootstrapped $(100*(1-cilev))% BC CI"][k]
             end
         end
     end

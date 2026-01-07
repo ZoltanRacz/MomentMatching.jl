@@ -7,6 +7,7 @@ using RecipesBase # to write code for figures
 
 using LinearAlgebra: diagm, tr, norm, cond, diag
 using Statistics: mean, var, cov, quantile
+using Distributions # for inference
 using JLD # For saving results. We should consider alternatives due to compatibility issues
 using Parameters: @with_kw, @unpack # For keywords in types
 using DocStringExtensions: FIELDS, TYPEDSIGNATURES, TYPEDEF # For easier documentation. Should we use it in the end?
