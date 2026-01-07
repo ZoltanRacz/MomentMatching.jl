@@ -10,8 +10,7 @@ npest = NumParMM(setup; Nglo=100, Nloc=10, local_opt_settings = (algorithm = Nel
 Tdis = 20
 Ndata = 500
 Tdata = 40
-Nsample = 4
-Nseed = 4
+Nboot = 100
 auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
 
 aux = AuxiliaryParameters(AR1Estimation("ar1estim"), "")
@@ -31,8 +30,13 @@ MomentMatching.obj_mom!(mom, momn, AR1Estimation("ar1estim"), [0.9, 0.2, 0.1], "
 est_1st = estimation(setup; npmm=npest, saving=false)
 @test est_1st isa EstimationResult
 
-boot_1st = param_bootstrap_result(setup, est_1st, auxmomsim, Nseed, Nsample, Ndata, saving=false)
-@test boot_1st isa BootstrapResult
+boot = param_bootstrap_result(setup, est_1st, auxmomsim, Nboot, Ndata, saving=false)
+@test boot isa BootstrapResult
+
+tableest(setup, est_1st, boot)
+
+boot_seed = param_bootstrap_result(setup, est_1st, auxmomsim, Nboot, Ndata, saving=false, onlyvaryseeds = true)
+@test boot_seed isa BootstrapResult
 
 marg = marginal_fobj(setup, est_1st, 17, fill(0.1, 3))
 fmarg(setup, est_1st, marg)
@@ -49,6 +53,6 @@ fmoms(setup, est_1st)
 fmoms(setup, est_1st, display_all = false)
 fmoms(setup, est_1st, which_point = 2)
 
-fbootstrap(setup, est_1st, boot_1st)
+fbootstrap(setup, est_1st, boot)
 
 flocalorder(est_1st)
