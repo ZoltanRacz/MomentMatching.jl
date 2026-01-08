@@ -27,15 +27,14 @@ est = estimation(setup; npmm, presh, xlocstart, cs=cs_11, saving=false)
 Tdis = 20
 Ndata = 500
 Tdata = 40
-Nsample = 4
-Nseed = 4
+Nboot = 100
 auxmomsim = AR1AuxPar(Ndata, Tdata + Tdis, Tdis)
 
-boot_11 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs=cs_11)
+boot_11 = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, saving=false, cs=cs_11)
 @test boot_11 isa BootstrapResult
 
 cs_14 = ComputationSettings(num_procs=1, num_tasks=4)
-boot_14 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs=cs_14)
+boot_14 = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, saving=false, cs=cs_14)
 @test boot_14 isa BootstrapResult
 
 using Plots
@@ -44,11 +43,11 @@ fbootstrap(setup, est, boot_14)
 
 if test_multiprocessing
     cs_31 = ComputationSettings(num_procs=3, num_tasks=1)
-    boot_31 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs=cs_31)
+    boot_31 = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, saving=false, cs=cs_31)
     @test boot_31 isa BootstrapResult
 
     cs_34 = ComputationSettings(num_procs=3, num_tasks=4)
-    boot_34 = param_bootstrap_result(setup, est, auxmomsim, Nseed, Nsample, Ndata, saving=false, cs=cs_34)
+    boot_34 = param_bootstrap_result(setup, est, auxmomsim, Nboot, Ndata, saving=false, cs=cs_34)
     @test boot_34 isa BootstrapResult
 
     fbootstrap(setup, est, boot_31)

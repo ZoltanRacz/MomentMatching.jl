@@ -19,7 +19,7 @@ struct AR1AuxPar{T<:Integer} <: AuxiliaryParameters
     Tdis::T
 end
 
-AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
+MomentMatching.AuxiliaryParameters(mode::AR1Estimation, modelname::String) = AR1AuxPar(10000, 200, 100)
 
 struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     "preallocated array for persistent shocks"
@@ -28,7 +28,7 @@ struct AR1PreShocks{S<:AbstractFloat} <: PredrawnShocks
     νs::Array{S,2}
 end
 
-function PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
+function MomentMatching.PredrawnShocks(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
     return AR1PreShocks(randn(aux.Nsim, aux.Tsim),
         randn(aux.Nsim, aux.Tsim))
 end
@@ -45,7 +45,7 @@ end
 # Recover moments from the data
 
 function MomentMatching.datamoments(mode::AR1Estimation, typemom::String)
-    momtrue = [0.8, 0.6, 0.4] # made up numbers
+    momtrue = [0.8, 0.45, 0.4] # made up numbers
 
     mmomtrue = deepcopy(momtrue)
 
@@ -60,7 +60,7 @@ struct AR1PrealCont{S<:AbstractFloat} <: PreallocatedContainers
     mat::Array{S,2}
 end
 
-function PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
+function MomentMatching.PreallocatedContainers(mode::AR1Estimation, modelname::String, typemom::String, aux::AuxiliaryParameters)
 
     z = Vector{Float64}(undef, aux.Nsim)
     y = Vector{Float64}(undef, aux.Nsim)
@@ -84,11 +84,11 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector, m
             preal.y[n] = preal.z[n] + σν * presh.νs[n, t]
         end
         if t > 2
-            preal.mat[3, t] = cov(preal.y, preal.ylag2)
+            preal.mat[3, t] = cov_noalloc(preal.y, preal.ylag2)
             copy!(preal.ylag2, preal.ylag1)
         end
         if t > 1
-            preal.mat[2, t] = cov(preal.y, preal.ylag1)
+            preal.mat[2, t] = cov_noalloc(preal.y, preal.ylag1)
             copy!(preal.ylag1, preal.y)
         end
         preal.mat[1, t] = var(preal.y)
@@ -104,6 +104,17 @@ function MomentMatching.obj_mom!(mom::AbstractVector, momnorm::AbstractVector, m
     mom[3] = mean(@view preal.mat[3, aux.Tdis:end])
     momnorm[3] = mom[3]
 
+end
+
+function cov_noalloc(x,y)
+    xbar = mean(x)
+    ybar = mean(y)
+    cov = 0.0
+    N = length(x)
+    for i in eachindex(x)
+        cov += (x[i]-xbar)*(y[i]-ybar)
+    end
+    return cov/(N-1)
 end
 
 function MomentMatching.momentnames(mode::AR1Estimation, typemom::String)
