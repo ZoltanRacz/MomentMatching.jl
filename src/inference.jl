@@ -137,8 +137,6 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
 
     pmms = [initMMmodel(estset, npmm, moms2=hcat(moms[sample_i], momnorms[sample_i]), mdifr=mdifrec) for sample_i in 1:Nboot] # re-estimation initiated with alternative moments instead of moments from data
 
-    presh_repeat = [PredrawnShocks(estset, aux) for seed_i in 1:Nboot] # Nseeds different aux structure for each alternative moment
-
     @assert(!threading_inside() || cs.num_tasks==1)
 
     prog = Progress(Nboot; desc="Performing bootstrap...", color = :blue)
@@ -152,9 +150,9 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
             end
 
             if cs.num_tasks == 1
-                singlethread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, chunk_procl, chnl)
+                singlethread_local!(xl, estset, npmm, pmms, aux, xlocstart, errorcatching, chunk_procl, chnl)
             else
-                multithread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, cs, chunk_procl, chnl)
+                multithread_local!(xl, estset, npmm, pmms, aux, xlocstart, errorcatching, cs, chunk_procl, chnl)
             end
             put!(chnl, false)
         end
@@ -174,9 +172,9 @@ function param_bootstrap(estset::EstimationSetup, mmsolu::EstimationResult, auxm
                 chunk_procl = localindices(xl)[2]
 
                 if cs.num_tasks == 1
-                    singlethread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, chunk_procl, chnl)
+                    singlethread_local!(xl, estset, npmm, pmms, aux, xlocstart, errorcatching, chunk_procl, chnl)
                 else
-                    multithread_local!(xl, estset, npmm, pmms, aux, presh_repeat, xlocstart, errorcatching, cs, chunk_procl, chnl)
+                    multithread_local!(xl, estset, npmm, pmms, aux, xlocstart, errorcatching, cs, chunk_procl, chnl)
                 end
             end
             put!(chnl, false)
@@ -200,14 +198,14 @@ Performs the local stage on a single-thread.
 
 Used for bootstrapping
 """
-function singlethread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, preshs::Vector{W}, xcands::AbstractVector, errorcatching::Bool, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM, W<:PredrawnShocks}
+function singlethread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, xcands::AbstractVector, errorcatching::Bool, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM}
     objl = Vector{Float64}(undef, length(chunk_procl))
     convl = Vector{Bool}(undef, length(chunk_procl))
     moml = Matrix{Float64}(undef, length(pmms[1].momdat),length(chunk_procl))
     momnorml = Vector{Float64}(undef, length(pmms[1].momdat))
     preal = PreallocatedContainers(estset, aux)
     for (locind, fullind) in enumerate(chunk_procl)
-        opt_loc!(objl, localpart(xl), moml, momnorml, convl, npmm.local_opt_settings, estset, aux, preshs[fullind], preal, pmms[fullind], xcands[fullind], locind, errorcatching)
+        opt_loc!(objl, localpart(xl), moml, momnorml, convl, npmm.local_opt_settings, estset, aux, PredrawnShocks(estset, aux), preal, pmms[fullind], xcands[fullind], locind, errorcatching)
         put!(chnl, true)
     end
 end
@@ -217,7 +215,7 @@ $(TYPEDSIGNATURES)
 
 Performs the local stage with multiple threads.
 """
-function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, preshs::Vector{W}, xcands::AbstractVector, errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM, W<:PredrawnShocks}
+function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::NumParMM, pmms::Vector{V}, aux::AuxiliaryParameters, xcands::AbstractVector, errorcatching::Bool, cs::ComputationSettings, chunk_procl::AbstractVector, chnl::RemoteChannel) where {V<:ParMM}
     chunks_th = chunks(chunk_procl; n=cs.num_tasks)
     tasks = map(chunks_th) do chunk
         Threads.@spawn begin
@@ -229,7 +227,7 @@ function multithread_local!(xl::AbstractMatrix, estset::EstimationSetup, npmm::N
             preal = PreallocatedContainers(estset, aux)
             for n in eachindex(chunk)
                 fullind = chunk_procl[chunk[n]]
-                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, convl_ch, npmm.local_opt_settings, estset, aux, preshs[fullind], preal, pmms[fullind], xcands[fullind], n, errorcatching)
+                opt_loc!(objl_ch, xl_ch, moml_ch, momnorml_ch, convl_ch, npmm.local_opt_settings, estset, aux, PredrawnShocks(estset, aux), preal, pmms[fullind], xcands[fullind], n, errorcatching)
 
                 put!(chnl, true)
             end
